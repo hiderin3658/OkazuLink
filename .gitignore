@@ -1,0 +1,29 @@
+.DS_Store
+node_modules/
+
+# 環境変数
+.env
+.env.local
+.env.*.local
+
+# ビルド成果物
+.next/
+out/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+
+# テスト
+coverage/
+playwright-report/
+test-results/
+
+# Supabase
+supabase/.branches
+supabase/.temp
+
+# 参考画像（開発用、公開リポ非推奨）
+pic/
