@@ -1,0 +1,53 @@
+# Supabase local dev configuration
+# `supabase init` で生成されるデフォルト設定の最小限版
+
+project_id = "okazu-link"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/api/auth/callback"]
+jwt_expiry = 3600
+# 新規サインアップは有効（OAuth フローで auth.users が生成される）。
+# 許可制はアプリケーション側の allowed_users ホワイトリストで実施。
+enable_signup = true
+enable_anonymous_sign_ins = false
+
+[auth.email]
+# メール/パスワード認証は使わない（Google OAuth のみ）
+enable_signup = false
+enable_confirmations = false
+
+[auth.external.google]
+enabled = true
+client_id = "env(GOOGLE_CLIENT_ID)"
+secret = "env(GOOGLE_CLIENT_SECRET)"
+redirect_uri = "http://localhost:54321/auth/v1/callback"
+
+[edge_runtime]
+enabled = true
+policy = "per_worker"
