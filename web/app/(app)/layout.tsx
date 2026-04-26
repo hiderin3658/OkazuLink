@@ -13,10 +13,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/login");
   }
 
+  // DB 側は email を小文字で保存しているため lowercase で比較する
   const { data: allowed } = await supabase
     .from("allowed_users")
     .select("role")
-    .eq("email", user.email ?? "")
+    .eq("email", (user.email ?? "").toLowerCase())
     .maybeSingle();
 
   if (!allowed) {

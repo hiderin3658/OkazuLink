@@ -1,5 +1,7 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+
+type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
 const PUBLIC_PATHS = ["/login", "/api/auth"];
 
@@ -14,7 +16,7 @@ export async function updateSession(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: CookieToSet[]) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           supabaseResponse = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
@@ -38,10 +40,11 @@ export async function updateSession(request: NextRequest) {
 
   if (user && !isPublic) {
     // ホワイトリスト検証（RLS でも守られているが early reject で UX 改善）
+    // DB 側は小文字で保存しているため lowercase で比較する
     const { data: allowed } = await supabase
       .from("allowed_users")
       .select("id")
-      .eq("email", user.email ?? "")
+      .eq("email", (user.email ?? "").toLowerCase())
       .maybeSingle();
 
     if (!allowed) {

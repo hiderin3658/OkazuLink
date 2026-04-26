@@ -17,11 +17,11 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}/login?error=auth_failed`);
   }
 
-  // ホワイトリスト検証
+  // ホワイトリスト検証（DB 側は小文字で保存しているため lowercase で比較する）
   const { data: allowed } = await supabase
     .from("allowed_users")
     .select("role")
-    .eq("email", data.user.email ?? "")
+    .eq("email", (data.user.email ?? "").toLowerCase())
     .maybeSingle();
 
   if (!allowed) {

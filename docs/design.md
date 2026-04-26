@@ -3,12 +3,19 @@
 > 一人暮らし女性向け「買い物 → 料理 → 栄養 → 健康管理」を一気通貫でサポートするパーソナル食生活アドバイザー Web アプリ。
 
 - 作成日: 2026-04-21
-- バージョン: 0.2
+- バージョン: 0.3
 - 対象: MVP 〜 将来拡張までの全体像
 
 ### 変更履歴
 - v0.1（2026-04-21）: 初期設計ドラフト
 - v0.2（2026-04-21）: Q-01〜Q-12 の決定反映。OCR 対象をレシートに変更／AI を Gemini 3 系に変更／ロードマップを Phase 0〜3 + 拡張 の構成に再編
+- v0.3（2026-04-26）: Phase 0 マイグレーション後の設計レビューを反映
+  - email を case-insensitive 化（lower() 統一）
+  - recipe_source enum から `user_saved` を削除（MVP では AI 生成のみ）
+  - body_composition_logs / meal_logs に UNIQUE 制約追加
+  - nutrition_monthly_summaries.year_month を date 型 (month_start) に変更
+  - recipe_ingredients に admin 書込ポリシー追加
+  - ai_advice_logs.kind にインデックス追加
 
 ---
 
@@ -354,7 +361,7 @@ servings (int)
 time_minutes (int)
 calories_kcal (int)
 steps (jsonb)              -- 手順配列
-source (enum: ai_generated, user_saved, external)
+source (enum: ai_generated, external)  -- v0.3: user_saved は MVP スコープ外として削除
 generated_prompt_hash (text)  -- 同条件キャッシュ用
 created_at
 ```
