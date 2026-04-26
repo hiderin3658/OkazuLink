@@ -94,10 +94,20 @@ psql "$SUPABASE_DB_URL" < supabase/seed.sql
 
 （`SUPABASE_DB_URL` は Supabase ダッシュボードの `Settings → Database → Connection string`）
 
-### 6. foods マスタ投入（日本食品標準成分表 八訂増補2023年）
+### 6. foods マスタ投入（日本食品標準成分表2020年版（八訂））
 
 手順は [`supabase/scripts/README.md`](supabase/scripts/README.md) 参照。
-Phase 0 後半 or Phase 1 先頭で投入する。
+
+簡易には:
+
+```bash
+cd web
+# scripts/.env を作成し SUPABASE_SERVICE_ROLE_KEY を設定後
+pnpm seed:foods   # 約 2,478 件投入
+```
+
+データ出典: katoharu432/standards-tables-of-food-composition-in-japan（CC BY 4.0）  
+原典: 文部科学省 日本食品標準成分表2020年版（八訂）
 
 ### 7. Next.js アプリのローカル起動
 

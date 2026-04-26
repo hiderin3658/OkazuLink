@@ -3,7 +3,7 @@
 > 一人暮らし女性向け「買い物 → 料理 → 栄養 → 健康管理」を一気通貫でサポートするパーソナル食生活アドバイザー Web アプリ。
 
 - 作成日: 2026-04-21
-- バージョン: 0.3
+- バージョン: 0.4
 - 対象: MVP 〜 将来拡張までの全体像
 
 ### 変更履歴
@@ -16,6 +16,11 @@
   - nutrition_monthly_summaries.year_month を date 型 (month_start) に変更
   - recipe_ingredients に admin 書込ポリシー追加
   - ai_advice_logs.kind にインデックス追加
+- v0.4（2026-04-27）: Phase 0 末作業（foods マスタ投入）の実装結果を反映
+  - 食材マスタを 2020年版（八訂）から 2,478 件投入（katoharu432 GitHub の CC BY 4.0 JSON を採用）
+  - 増補2023年は採用見送り（公式 CSV/Excel 入手後にデータファイル差し替えで再投入する想定）
+  - seed スクリプトは `web/scripts/seed-foods.ts` に配置（モジュール解決の都合）
+  - service_role key の保管を `web/.env.local` から `web/scripts/.env` に分離
 
 ---
 
