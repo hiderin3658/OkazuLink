@@ -11,7 +11,8 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "seed:foods": "tsx scripts/seed-foods.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
