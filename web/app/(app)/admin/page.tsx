@@ -7,10 +7,11 @@ export default async function AdminPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // DB 側は email を小文字で保存しているため lowercase で比較する
   const { data: me } = await supabase
     .from("allowed_users")
     .select("role")
-    .eq("email", user?.email ?? "")
+    .eq("email", (user?.email ?? "").toLowerCase())
     .maybeSingle();
 
   if (me?.role !== "admin") {
