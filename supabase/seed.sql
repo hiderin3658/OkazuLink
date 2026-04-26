@@ -1,15 +1,19 @@
 -- =====================================================================
 -- Seed データ
 -- 作成日: 2026-04-21
+-- 更新日: 2026-04-26（admin email を実際のテストアカウントに変更）
 -- =====================================================================
 
 -- 初期 admin ユーザー（作成者）
--- 注意: email 一致でホワイトリスト判定するため、アプリでログインする Google アカウントの email と一致させること
+-- 注意:
+--   - email 一致でホワイトリスト判定するため、ログインする Google アカウントの
+--     email と一致させること
+--   - email は必ず全部小文字で記載（CHECK 制約 email = lower(email) があるため）
 insert into public.allowed_users (email, role, note)
-values ('h.hamada@i-seifu.jp', 'admin', 'Creator / Admin — does not use the app as end user')
+values ('hiderinchan3658@gmail.com', 'admin', 'Creator / Admin')
 on conflict (email) do nothing;
 
--- 初期利用者（Phase 0 開始時に実際の利用者 email をここに追記）
+-- 初期利用者（必要に応じてコメントを外し、実際の利用者 email を全部小文字で記入）
 -- insert into public.allowed_users (email, role, note)
 -- values ('<end-user-email@gmail.com>', 'user', 'Primary user')
 -- on conflict (email) do nothing;
