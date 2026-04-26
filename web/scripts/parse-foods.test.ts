@@ -105,6 +105,30 @@ describe("extractNutrition", () => {
     expect(n.vitamin_c_mg).toBeNull();
     expect(n.vitamin_a_ug).toBeNull();
   });
+
+  it("空の row でも全マッピング先キーが null で揃う", () => {
+    const row = { groupId: 1, foodId: 1001, indexId: 1, foodName: "" };
+    const n = extractNutrition(row);
+    expect(n.energy_kcal).toBeNull();
+    expect(n.protein_g).toBeNull();
+    expect(n.fat_g).toBeNull();
+    expect(n.salt_g).toBeNull();
+    expect(n.iron_mg).toBeNull();
+  });
+
+  it("負の値・極端な値はそのまま保持（DB 側の意味解釈に委ねる）", () => {
+    const row = {
+      groupId: 1,
+      foodId: 1001,
+      indexId: 1,
+      foodName: "test",
+      enercKcal: -1,
+      prot: 999.999,
+    };
+    const n = extractNutrition(row);
+    expect(n.energy_kcal).toBe(-1);
+    expect(n.protein_g).toBe(999.999);
+  });
 });
 
 describe("parseFoodSource", () => {
@@ -159,5 +183,21 @@ describe("parseFoodSource", () => {
     const out = parseFoodSource([{ ...sampleRow, groupId: 99 }]);
     expect(out[0]!.category).toBe("other");
     expect(out[0]!.food_group).toContain("99");
+  });
+
+  it("空配列はそのまま空配列を返す", () => {
+    expect(parseFoodSource([])).toEqual([]);
+  });
+
+  it("複数件を同時に変換する（順序が保たれる）", () => {
+    const rows = [
+      { ...sampleRow, foodId: 1001, foodName: "a" },
+      { ...sampleRow, foodId: 11001, foodName: "b" },
+      { ...sampleRow, foodId: 18052, foodName: "c" },
+    ];
+    const out = parseFoodSource(rows);
+    expect(out).toHaveLength(3);
+    expect(out.map((x) => x.code)).toEqual(["01001", "11001", "18052"]);
+    expect(out.map((x) => x.name)).toEqual(["a", "b", "c"]);
   });
 });
