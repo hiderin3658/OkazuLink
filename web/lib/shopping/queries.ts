@@ -2,9 +2,16 @@
 //
 // すべて RLS で守られているため authenticated user のもののみ返る前提。
 // middleware で /shopping パスは認証必須にしている。
+//
+// 集約ロジックは aggregations.ts に分離して純粋関数化（単体テスト容易化）
 
 import { createClient } from "@/lib/supabase/server";
 import type { ShoppingRecord, ShoppingRecordWithItems } from "@/types/database";
+import {
+  aggregateMonthlySummary,
+  dedupeIngredientNames,
+  type MonthlyRow,
+} from "./aggregations";
 
 /** 買物履歴 N 件取得（新しい順）。LIMIT は安全な上限を設ける。 */
 export async function listShoppingRecords(limit = 50): Promise<ShoppingRecord[]> {
@@ -32,11 +39,9 @@ export async function getShoppingRecord(
 }
 
 /** 月別合計（YYYY-MM をキーにした合計金額）を直近 N ヶ月で集計する */
-export async function getMonthlySummary(months = 6): Promise<
-  { year_month: string; total: number; record_count: number }[]
-> {
+export async function getMonthlySummary(months = 6): Promise<MonthlyRow[]> {
   const supabase = await createClient();
-  // 簡易実装: 直近 N ヶ月分の records を取って JS 側で集計。
+  // 簡易実装: 直近 N ヶ月分の records を取って JS 側で集計（aggregations.ts）。
   // 件数が増えてきたら DB View に置き換える（Phase 2 で対応）。
   const since = new Date();
   since.setMonth(since.getMonth() - months);
@@ -46,17 +51,9 @@ export async function getMonthlySummary(months = 6): Promise<
     .select("purchased_at, total_amount")
     .gte("purchased_at", sinceStr)
     .order("purchased_at", { ascending: false });
-  const map = new Map<string, { total: number; record_count: number }>();
-  for (const r of (data ?? []) as { purchased_at: string; total_amount: number }[]) {
-    const ym = r.purchased_at.slice(0, 7); // YYYY-MM
-    const cur = map.get(ym) ?? { total: 0, record_count: 0 };
-    cur.total += r.total_amount;
-    cur.record_count += 1;
-    map.set(ym, cur);
-  }
-  return [...map.entries()]
-    .map(([year_month, v]) => ({ year_month, ...v }))
-    .sort((a, b) => (a.year_month < b.year_month ? 1 : -1));
+  return aggregateMonthlySummary(
+    (data ?? []) as { purchased_at: string; total_amount: number }[],
+  );
 }
 
 /** 直近 N 件の買物明細を集めて、ユニークな食材名のリストを返す
@@ -68,15 +65,8 @@ export async function getRecentIngredientNames(limit = 30): Promise<string[]> {
     .select("raw_name, display_name, created_at")
     .order("created_at", { ascending: false })
     .limit(200);
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const it of (data ?? []) as { raw_name: string; display_name: string | null }[]) {
-    const name = it.display_name ?? it.raw_name;
-    if (!seen.has(name)) {
-      seen.add(name);
-      out.push(name);
-      if (out.length >= limit) break;
-    }
-  }
-  return out;
+  return dedupeIngredientNames(
+    (data ?? []) as { raw_name: string; display_name: string | null }[],
+    limit,
+  );
 }

@@ -112,10 +112,14 @@ export function ShoppingForm(props: Props) {
       const result = await action(null, payload);
       if (!result || !result.ok) {
         const message = result?.ok === false ? result.message : "保存に失敗しました";
-        const detail = result && result.ok === false && result.fieldErrors
-          ? Object.values(result.fieldErrors).flat().filter(Boolean).slice(0, 3).join(" / ")
-          : "";
-        setError(detail ? `${message}: ${detail}` : message);
+        if (result && result.ok === false && result.fieldErrors) {
+          const allErrors = Object.values(result.fieldErrors).flat().filter(Boolean);
+          const shown = allErrors.slice(0, 3).join(" / ");
+          const omitted = allErrors.length > 3 ? ` 他 ${allErrors.length - 3} 件` : "";
+          setError(`${message}: ${shown}${omitted}`);
+        } else {
+          setError(message);
+        }
         return;
       }
       router.push(`/shopping/${result.id}`);

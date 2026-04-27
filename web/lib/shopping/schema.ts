@@ -93,7 +93,9 @@ export function calcTotalAmount(items: Pick<ShoppingItemParsed, "total_price" | 
   return items.reduce((sum, it) => sum + (it.total_price ?? 0) - (it.discount ?? 0), 0);
 }
 
-/** 空の item 行のテンプレート */
+/** 空の item 行のテンプレート。
+ *  display_name と unit はフォーム入力欄が空文字の状態を表すため "" を使う。
+ *  Zod の transform で空文字 → null に正規化される。 */
 export const emptyItem: ShoppingItemInput = {
   raw_name: "",
   display_name: "",
