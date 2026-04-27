@@ -46,9 +46,11 @@ function safeCategory(c: string): FoodCategory {
  *
  *  - source_type は "receipt" 固定
  *  - image_paths は呼出側で 1 件以上を渡してくる前提
- *  - discounts は ShoppingItemInput には含まれないため、各 item の discount に
- *    プロラタ配賦するのではなく合計を total_amount から差し引く（recipt OCR の
- *    discount は値引額が負値）
+ *  - discounts の扱い:
+ *    - 各 item.discount = 0 で初期化（プロラタ配賦は不確かなため避ける）
+ *    - レシート全体の値引きは note フィールドに転記（運用情報として保持）
+ *    - total_amount は OCR が返した「値引き後合計」をそのまま採用
+ *    - ユーザーは編集画面で個別に discount を調整可能
  */
 export function ocrToShoppingInput(
   ocr: OcrResult,

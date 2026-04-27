@@ -23,6 +23,10 @@ export function NewShoppingFlow() {
   }
 
   function handleSwitchToManual() {
+    // ShoppingForm を key で remount するため、手入力中の入力内容も失われる旨を確認
+    if (!confirm("手入力に切り替えますと、OCR で自動入力された内容は破棄されます。よろしいですか？")) {
+      return;
+    }
     setInitial(null);
     setOcrCompleted(false);
   }

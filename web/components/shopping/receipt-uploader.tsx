@@ -95,6 +95,12 @@ export function ReceiptUploader({ onResult }: Props) {
       { body: { imagePath: path } },
     );
     if (fnErr || !data) {
+      // OCR 失敗時は Storage に上がった画像を孤児にしないよう削除を試みる
+      // （失敗しても致命的ではないので await 後の error は無視）
+      void supabase.storage
+        .from("receipts")
+        .remove([path])
+        .catch((err) => console.warn("[receipt-uploader] cleanup failed:", err));
       setErrorMessage(toErrorMessage(fnErr));
       setStatus("error");
       return;
