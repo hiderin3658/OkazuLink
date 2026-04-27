@@ -32,6 +32,14 @@ function isYmd(s: unknown): s is string {
   return typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
 }
 
+/** 今日の日付を JST (Asia/Tokyo) で返す。purchased_at の fallback 用。
+ *  UTC で取ると JST 9 時前の利用は 1 日ずれるため、明示的に +9h して扱う。 */
+function todayInJst(): string {
+  const now = new Date();
+  const jstShifted = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return jstShifted.toISOString().slice(0, 10);
+}
+
 /** 整数化（小数を四捨五入）。NaN や非数値は null */
 function toInt(v: unknown): number | null {
   if (typeof v === "number") return Number.isFinite(v) ? Math.round(v) : null;
@@ -127,9 +135,7 @@ export function validateOcrResult(raw: unknown): OcrResult {
   }
   const r = raw as Record<string, unknown>;
 
-  const purchased_at = isYmd(r.purchased_at)
-    ? (r.purchased_at as string)
-    : new Date().toISOString().slice(0, 10);
+  const purchased_at = isYmd(r.purchased_at) ? (r.purchased_at as string) : todayInJst();
 
   const total_amount = toInt(r.total_amount);
   if (total_amount === null) {

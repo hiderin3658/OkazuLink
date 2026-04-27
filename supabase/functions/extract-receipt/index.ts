@@ -30,9 +30,10 @@ import type {
   AiKind,
   BudgetMode,
   EdgeError,
+  EdgeErrorCode,
   OcrResult,
 } from "../_shared/types.ts";
-import { validateOcrResult } from "./validate.ts";
+import { OcrValidationError, validateOcrResult } from "./validate.ts";
 
 interface RequestBody {
   /** Storage 内パス: "<userId>/<uuid>.<ext>" */
@@ -81,6 +82,21 @@ function guessMimeType(blob: Blob, path: string): string {
   if (lower.endsWith(".webp")) return "image/webp";
   if (lower.endsWith(".heic")) return "image/heic";
   return "image/jpeg";
+}
+
+/** OCR 失敗の原因を EdgeError.code に変換する。
+ *  reason ごとに分けることで、クライアント側で UX 分岐できる
+ *  （例: timeout はリトライ、blocked は別の画像を促す、等） */
+function ocrFailureCode(err: unknown): EdgeErrorCode {
+  if (err instanceof GeminiError) {
+    if (err.reason === "timeout") return "AI_TIMEOUT";
+    if (err.reason === "blocked") return "AI_BLOCKED";
+    return "AI_INVALID_RESPONSE";
+  }
+  if (err instanceof OcrValidationError) {
+    return "AI_INVALID_RESPONSE";
+  }
+  return "INTERNAL_ERROR";
 }
 
 // =====================================================================
@@ -223,13 +239,15 @@ Deno.serve(async (req: Request) => {
       });
 
       if (isLast) {
+        const code = ocrFailureCode(err);
+        const status = code === "AI_TIMEOUT" ? 504 : code === "AI_BLOCKED" ? 422 : 502;
         return jsonResponse<EdgeError>(
           {
-            error: "OCR failed for both primary and fallback models",
-            code: "AI_INVALID_RESPONSE",
-            detail,
+            error: "OCR failed",
+            code,
+            detail: `last_reason=${reason}; ${detail}`,
           },
-          { status: 502 },
+          { status },
         );
       }
       // 次の attempt へ

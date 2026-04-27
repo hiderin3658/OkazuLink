@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { OcrValidationError, validateOcrResult } from "./validate";
 
+/** validate.ts 内の todayInJst と同じロジックでテストの期待値を生成 */
+function jstToday(): string {
+  const now = new Date();
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return jst.toISOString().slice(0, 10);
+}
+
 const validBase = {
   store_name: "ライフ",
   purchased_at: "2026-04-27",
@@ -64,18 +71,18 @@ describe("validateOcrResult", () => {
     expect(out.total_amount).toBe(1500);
   });
 
-  it("purchased_at の形式が不正なら今日の日付を fallback", () => {
-    const today = new Date().toISOString().slice(0, 10);
+  it("purchased_at の形式が不正なら今日（JST）の日付を fallback", () => {
+    const todayJst = jstToday();
     const out = validateOcrResult({ ...validBase, purchased_at: "2026/04/27" });
-    expect(out.purchased_at).toBe(today);
+    expect(out.purchased_at).toBe(todayJst);
   });
 
-  it("purchased_at が無い場合も今日の日付を fallback", () => {
-    const today = new Date().toISOString().slice(0, 10);
+  it("purchased_at が無い場合も今日（JST）の日付を fallback", () => {
+    const todayJst = jstToday();
     const { purchased_at: _, ...rest } = validBase;
     void _;
     const out = validateOcrResult(rest);
-    expect(out.purchased_at).toBe(today);
+    expect(out.purchased_at).toBe(todayJst);
   });
 
   it("不正な category は other に丸める", () => {
