@@ -4,7 +4,13 @@ import { resolve } from "node:path";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["**/*.test.ts", "**/*.test.tsx"],
+    // web/ 配下に加え、supabase/functions/_shared/ の純粋関数テストも拾う。
+    // Edge Function 本体（hello/index.ts 等）は Deno 専用 API を使うため対象外。
+    include: [
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "../supabase/functions/_shared/**/*.test.ts",
+    ],
     passWithNoTests: true,
   },
   resolve: {

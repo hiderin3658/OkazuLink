@@ -1,0 +1,15 @@
+{
+  "lock": false,
+  "importMap": "./import_map.json",
+  "compilerOptions": {
+    "lib": ["deno.window", "deno.unstable", "DOM"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true
+  },
+  "fmt": {
+    "indentWidth": 2,
+    "lineWidth": 100,
+    "useTabs": false,
+    "semiColons": true
+  }
+}
