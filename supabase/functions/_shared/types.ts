@@ -32,10 +32,26 @@ export interface GeminiCallResult<T> {
 /** AI 予算モード（環境変数 AI_BUDGET_MODE） */
 export type BudgetMode = "soft" | "hard";
 
+/** Edge Function の標準エラーコード（クライアント側が string-match で分岐できるよう union 化） */
+export const EDGE_ERROR_CODES = [
+  "AUTH_MISSING_TOKEN",
+  "AUTH_INVALID_TOKEN",
+  "AUTH_NOT_ALLOWED",
+  "AUTH_DB_ERROR",
+  "BAD_REQUEST",
+  "BUDGET_EXCEEDED",
+  "AI_BLOCKED",
+  "AI_TIMEOUT",
+  "AI_INVALID_RESPONSE",
+  "INTERNAL_ERROR",
+] as const;
+
+export type EdgeErrorCode = (typeof EDGE_ERROR_CODES)[number];
+
 /** Edge Function の標準エラーレスポンス */
 export interface EdgeError {
   error: string;
-  code: string;
+  code: EdgeErrorCode;
   detail?: string;
 }
 

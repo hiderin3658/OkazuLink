@@ -5,6 +5,15 @@
 //
 // このモジュールは純粋関数のみを公開する（fetch も Supabase SDK も使わない）ため
 // vitest で完全にテスト可能。
+//
+// 丸めポリシー:
+// - calculateCostUsd: 小数 6 桁丸め（ai_advice_logs.cost_usd の numeric(10,6) と整合）
+// - usdToJpy: 小数 2 桁丸め（円表示の慣習）
+// - evaluateBudget.monthly_total_jpy: 小数 2 桁丸め（同上）
+//
+// 月の境界は UTC で扱う（getMonthlyCostUsd in ai-log.ts）。JST 月末との時差で
+// 月初 9 時間が前月扱いになる。MVP では実用上問題ないと判断。
+// 完全な JST 月次集計が必要になったら DB 側で `at time zone 'Asia/Tokyo'` で集約する。
 
 import type { BudgetMode, GeminiModel } from "./types";
 

@@ -7,7 +7,8 @@
 // テストは Edge Function の統合テスト (supabase functions serve) で行う。
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { EdgeError } from "./types";
+import { mustEnv } from "./env.ts";
+import type { EdgeError } from "./types.ts";
 
 interface AuthOk {
   ok: true;
@@ -60,6 +61,7 @@ export async function authenticate(req: Request): Promise<AuthResult> {
       error: {
         error: "Invalid JWT or no email",
         code: "AUTH_INVALID_TOKEN",
+        // detail にエラー理由を入れるが、機密情報は含めない（getUser のエラーは型情報のみ）
         detail: error?.message,
       },
     };
@@ -76,7 +78,13 @@ export async function authenticate(req: Request): Promise<AuthResult> {
     return {
       ok: false,
       status: 500,
-      error: { error: "allowed_users lookup failed", code: "AUTH_DB_ERROR", detail: listErr.message },
+      error: {
+        error: "allowed_users lookup failed",
+        code: "AUTH_DB_ERROR",
+        // listErr.message には PG エラーメッセージが入る。これは内部情報なので
+        // 通常は顧客に返さないが、開発初期のデバッグのために残す。本番運用前に削除検討。
+        detail: listErr.message,
+      },
     };
   }
   if (!allowed) {
@@ -99,15 +107,4 @@ export function createServiceClient(): SupabaseClient {
   return createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-}
-
-function mustEnv(name: string): string {
-  // Deno と Node の両方で動くように globalThis 経由でアクセス
-  const v =
-    (globalThis as { Deno?: { env: { get: (k: string) => string | undefined } } }).Deno?.env.get(name) ??
-    (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env?.[name];
-  if (!v) {
-    throw new Error(`Missing required env var: ${name}`);
-  }
-  return v;
 }

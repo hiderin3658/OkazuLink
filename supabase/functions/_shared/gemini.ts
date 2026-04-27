@@ -5,12 +5,13 @@
 //
 // 認証は API key（ヘッダ x-goog-api-key）。OAuth 等は使わない。
 
+import { calculateCostUsd } from "./budget.ts";
+import { maskString } from "./sanitize.ts";
 import type {
   GeminiCallMeta,
   GeminiCallResult,
   GeminiModel,
-} from "./types";
-import { calculateCostUsd } from "./budget";
+} from "./types.ts";
 
 // =====================================================================
 // Gemini API レスポンス型（必要部分のみ）
@@ -44,6 +45,35 @@ interface GeminiGenerateResponse {
   candidates?: GeminiCandidate[];
   usageMetadata?: GeminiUsageMetadata;
   promptFeedback?: { blockReason?: string };
+}
+
+/** Gemini レスポンスの最小バリデーション。as キャストではなく runtime チェック */
+function isGeminiResponse(v: unknown): v is GeminiGenerateResponse {
+  if (typeof v !== "object" || v === null) return false;
+  const r = v as Record<string, unknown>;
+  if (
+    r.candidates !== undefined &&
+    !Array.isArray(r.candidates)
+  ) return false;
+  return true;
+}
+
+/** Gemini 呼出系のエラー。reason / status / blockReason 等の構造化情報を保持 */
+export class GeminiError extends Error {
+  constructor(
+    message: string,
+    public readonly reason:
+      | "http_error"
+      | "blocked"
+      | "no_text"
+      | "timeout"
+      | "invalid_response",
+    public readonly status?: number,
+    public readonly blockReason?: string,
+  ) {
+    super(message);
+    this.name = "GeminiError";
+  }
 }
 
 // =====================================================================
@@ -81,7 +111,7 @@ const DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 // =====================================================================
 
 /** Gemini にテキスト+任意の画像を送り、生成テキストを返す。
- *  失敗時は throw する。呼び出し側で try-catch して fallback / ai_advice_logs 記録 */
+ *  失敗時は GeminiError を throw する */
 export async function callGemini(
   input: GeminiTextInput,
   opts: GeminiClientOptions,
@@ -124,38 +154,58 @@ export async function callGemini(
       body: JSON.stringify(body),
       signal: controller.signal,
     });
+  } catch (err) {
+    if ((err as { name?: string }).name === "AbortError") {
+      throw new GeminiError("Gemini request timed out", "timeout");
+    }
+    throw err;
   } finally {
     clearTimeout(timer);
   }
 
   if (!res.ok) {
     const errText = await safeReadText(res);
-    throw new Error(
-      `Gemini API error: status=${res.status} body=${truncate(errText, 500)}`,
+    // エラーボディに API key やトークンが含まれることはないが、念のためマスク
+    throw new GeminiError(
+      `Gemini API error: status=${res.status} body=${truncate(maskString(errText), 500)}`,
+      "http_error",
+      res.status,
     );
   }
 
-  const json = (await res.json()) as GeminiGenerateResponse;
+  const json = (await res.json()) as unknown;
+  if (!isGeminiResponse(json)) {
+    throw new GeminiError("Gemini returned unexpected response shape", "invalid_response");
+  }
 
   if (json.promptFeedback?.blockReason) {
-    throw new Error(
+    throw new GeminiError(
       `Gemini blocked the prompt: ${json.promptFeedback.blockReason}`,
+      "blocked",
+      undefined,
+      json.promptFeedback.blockReason,
     );
   }
 
   const text = extractText(json);
   if (!text) {
-    throw new Error("Gemini returned no text");
+    throw new GeminiError("Gemini returned no text", "no_text");
   }
 
-  const tokens_in = json.usageMetadata?.promptTokenCount ?? 0;
-  const tokens_out = json.usageMetadata?.candidatesTokenCount ?? 0;
+  // 使用トークン数が undefined の場合は -1 で明示。calculateCostUsd は 0 として扱われる。
+  const tokens_in = json.usageMetadata?.promptTokenCount ?? null;
+  const tokens_out = json.usageMetadata?.candidatesTokenCount ?? null;
   const meta: GeminiCallMeta = {
     model: opts.model,
-    tokens_in,
-    tokens_out,
-    cost_usd: calculateCostUsd(opts.model, tokens_in, tokens_out),
+    tokens_in: tokens_in ?? 0,
+    tokens_out: tokens_out ?? 0,
+    cost_usd: calculateCostUsd(opts.model, tokens_in ?? 0, tokens_out ?? 0),
   };
+  if (tokens_in == null || tokens_out == null) {
+    console.warn(
+      `[gemini] usageMetadata partial: tokens_in=${tokens_in} tokens_out=${tokens_out}. cost_usd may be underestimated.`,
+    );
+  }
 
   return { data: text, meta };
 }
@@ -185,12 +235,19 @@ function truncate(s: string, n: number): string {
   return s.length > n ? `${s.slice(0, n)}…` : s;
 }
 
-/** Gemini が JSON 文字列を返してくる前提でパースする。失敗時は throw */
+/** Gemini が JSON 文字列を返してくる前提でパースする。失敗時は GeminiError */
 export function parseJsonOutput<T>(text: string): T {
   // モデルによってはマークダウンコードブロックで包んでくることがある
   const cleaned = text
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```\s*$/i, "")
     .trim();
-  return JSON.parse(cleaned) as T;
+  try {
+    return JSON.parse(cleaned) as T;
+  } catch (err) {
+    throw new GeminiError(
+      `Failed to parse Gemini JSON output: ${(err as Error).message}`,
+      "invalid_response",
+    );
+  }
 }

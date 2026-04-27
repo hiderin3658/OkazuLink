@@ -155,8 +155,33 @@ PR-C 以降では実画像・実プロンプトでの E2E 確認を行う。
 
 ## 既知の注意点
 
-- **CORS**: 現状は `*` を許す軽量設定。本番リリース前に `ALLOWED_ORIGIN`
-  環境変数で Vercel ドメインのみに絞ること
-- **エラーメッセージ**: ユーザー向けには汎用文言で、詳細は console.error / ai_advice_logs.error にのみ流す方針（情報漏洩防止）
+- **CORS**: `ALLOWED_ORIGIN` 環境変数で制御。未設定ならローカル開発用に `*` を許す。
+  本番では Vercel ドメイン (`https://okazu-link.vercel.app` 等) を厳密設定すること
+- **request_payload 記録**: `_shared/sanitize.ts` の `sanitizeForAiLog()` で
+  画像 base64・API キー・トークンをマスクしてから ai_advice_logs に保存
+- **エラーメッセージ**: `GeminiError` クラスで `reason` を構造化、機密値は
+  `maskString()` でマスクしてからログ出力
 - **コスト管理**: `evaluateBudget()` は呼び出し前にチェック必須。`hard` モードで超過時は呼出を拒否
+- **月の境界**: UTC で集計（JST との時差で月初 9 時間が前月扱い）。完全な
+  JST 月次集計が必要になったら DB の `at time zone 'Asia/Tokyo'` で対応
+- **トークン数**: `usageMetadata` が partial の場合は `console.warn` を出し、
+  cost_usd は欠損トークン数 = 0 として記録される点に注意
 - **モデル名の更新**: Gemini 3 系の正式リリース後、`budget.ts` の `PRICING` テーブルを実価格で更新する
+
+## 環境変数の完全リスト
+
+| 変数名 | 用途 | 必須? | 例 |
+|---|---|---|---|
+| `SUPABASE_URL` | Supabase プロジェクト URL（Edge Runtime が自動付与） | ✅ | `https://xxx.supabase.co` |
+| `SUPABASE_ANON_KEY` | anon JWT 検証用 | ✅ | `eyJ...` |
+| `SUPABASE_SERVICE_ROLE_KEY` | RLS バイパス用（ai_advice_logs 等の書込） | ✅ | `eyJ...` |
+| `GEMINI_API_KEY` | Google AI Studio API キー | ✅ | `AIzaSy...` |
+| `MODEL_OCR` | レシート OCR 用モデル | optional | `gemini-3-flash` |
+| `MODEL_OCR_FALLBACK` | OCR 失敗時のフォールバック | optional | `gemini-3-pro` |
+| `MODEL_RECIPE` | レシピ提案用モデル | optional | `gemini-3-flash` |
+| `MODEL_ADVICE` | 栄養アドバイス（Phase 2）用モデル | optional | `gemini-3-pro` |
+| `MODEL_REPORT` | 月次レポート（将来）用モデル | optional | `gemini-3.1-flash-lite` |
+| `MONTHLY_AI_BUDGET_JPY` | 月次予算（円） | optional | `1000` |
+| `AI_BUDGET_MODE` | `soft`（警告のみ）/ `hard`（超過時停止） | optional | `soft` |
+| `USD_JPY_RATE` | コスト円換算用レート | optional | `150` |
+| `ALLOWED_ORIGIN` | CORS Allow-Origin（本番はここで制御） | optional | `https://okazu-link.vercel.app` |

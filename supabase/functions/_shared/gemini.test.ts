@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { callGemini, extractText, parseJsonOutput } from "./gemini";
+import { callGemini, extractText, GeminiError, parseJsonOutput } from "./gemini";
 
 // Gemini レスポンス形のサンプルを作るヘルパー
 function buildResponse(opts: {
@@ -136,37 +136,127 @@ describe("callGemini", () => {
     expect(body.generationConfig?.responseMimeType).toBe("application/json");
   });
 
-  it("HTTP エラーは throw", async () => {
+  it("HTTP エラーは GeminiError(http_error, status) を throw", async () => {
     const fetchMock = vi.fn(async () =>
       new Response("internal error", { status: 500 }),
     );
-    await expect(
-      callGemini(
+    let caught: unknown;
+    try {
+      await callGemini(
         { user: "x" },
         { apiKey: "k", model: "gemini-3-flash", fetchImpl: fetchMock },
-      ),
-    ).rejects.toThrow(/status=500/);
+      );
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(GeminiError);
+    expect((caught as GeminiError).reason).toBe("http_error");
+    expect((caught as GeminiError).status).toBe(500);
   });
 
-  it("blockReason が返ったら throw", async () => {
+  it("HTTP エラーボディに含まれる API key 風文字列はマスクされる", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        "Error: AIzaSyAbcdefghijklmnopqrstuvwxyz1234567890 invalid",
+        { status: 400 },
+      ),
+    );
+    let caught: GeminiError | undefined;
+    try {
+      await callGemini(
+        { user: "x" },
+        { apiKey: "k", model: "gemini-3-flash", fetchImpl: fetchMock },
+      );
+    } catch (e) {
+      caught = e as GeminiError;
+    }
+    expect(caught?.message).not.toContain("AIzaSy");
+    expect(caught?.message).toContain("<GOOGLE_API_KEY>");
+  });
+
+  it("blockReason が返ったら GeminiError(blocked, blockReason) を throw", async () => {
     const fetchMock = vi.fn(async () =>
       buildResponse({ blockReason: "SAFETY" }),
     );
-    await expect(
-      callGemini(
+    let caught: GeminiError | undefined;
+    try {
+      await callGemini(
         { user: "x" },
         { apiKey: "k", model: "gemini-3-flash", fetchImpl: fetchMock },
-      ),
-    ).rejects.toThrow(/SAFETY/);
+      );
+    } catch (e) {
+      caught = e as GeminiError;
+    }
+    expect(caught).toBeInstanceOf(GeminiError);
+    expect(caught?.reason).toBe("blocked");
+    expect(caught?.blockReason).toBe("SAFETY");
   });
 
-  it("候補テキストが空なら throw", async () => {
+  it("候補テキストが空なら GeminiError(no_text) を throw", async () => {
     const fetchMock = vi.fn(async () => buildResponse({ text: "" }));
-    await expect(
-      callGemini(
+    let caught: GeminiError | undefined;
+    try {
+      await callGemini(
         { user: "x" },
         { apiKey: "k", model: "gemini-3-flash", fetchImpl: fetchMock },
-      ),
-    ).rejects.toThrow(/no text/i);
+      );
+    } catch (e) {
+      caught = e as GeminiError;
+    }
+    expect(caught?.reason).toBe("no_text");
+  });
+
+  it("AbortError は GeminiError(timeout) に変換される", async () => {
+    const fetchMock = vi.fn(async (_url: string | URL, init?: RequestInit) => {
+      // signal を観察し、即座に abort をシミュレート
+      return await new Promise<Response>((_, reject) => {
+        const ac = init?.signal as AbortSignal | undefined;
+        if (ac) {
+          if (ac.aborted) {
+            const err = new Error("aborted");
+            err.name = "AbortError";
+            reject(err);
+            return;
+          }
+          ac.addEventListener("abort", () => {
+            const err = new Error("aborted");
+            err.name = "AbortError";
+            reject(err);
+          });
+        }
+      });
+    });
+    let caught: GeminiError | undefined;
+    try {
+      await callGemini(
+        { user: "x" },
+        {
+          apiKey: "k",
+          model: "gemini-3-flash",
+          fetchImpl: fetchMock as unknown as typeof fetch,
+          timeoutMs: 1, // 即タイムアウト
+        },
+      );
+    } catch (e) {
+      caught = e as GeminiError;
+    }
+    expect(caught).toBeInstanceOf(GeminiError);
+    expect(caught?.reason).toBe("timeout");
+  });
+
+  it("不正なレスポンス shape は GeminiError(invalid_response)", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response("null", { status: 200 }),
+    );
+    let caught: GeminiError | undefined;
+    try {
+      await callGemini(
+        { user: "x" },
+        { apiKey: "k", model: "gemini-3-flash", fetchImpl: fetchMock },
+      );
+    } catch (e) {
+      caught = e as GeminiError;
+    }
+    expect(caught?.reason).toBe("invalid_response");
   });
 });

@@ -13,6 +13,7 @@
 
 import { authenticate } from "../_shared/auth.ts";
 import { jsonResponse, preflightResponse } from "../_shared/cors.ts";
+import type { EdgeError } from "../_shared/types.ts";
 
 interface RequestBody {
   name?: string;
@@ -23,7 +24,8 @@ Deno.serve(async (req: Request) => {
     return preflightResponse();
   }
   if (req.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, { status: 405 });
+    const err: EdgeError = { error: "Method not allowed", code: "BAD_REQUEST" };
+    return jsonResponse(err, { status: 405 });
   }
 
   const authResult = await authenticate(req);
