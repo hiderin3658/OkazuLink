@@ -23,6 +23,10 @@ supabase/functions/
 │  └─ *.test.ts                vitest からも実行される単体テスト
 ├─ hello/
 │  └─ index.ts                 疎通確認用 Function（PR-B のスモークテスト）
+├─ extract-receipt/
+│  ├─ index.ts                 レシート OCR Function（Gemini Flash + Pro フォールバック）
+│  ├─ validate.ts              Gemini 出力 JSON の検証・整形（vitest 対応）
+│  └─ validate.test.ts
 ├─ deno.json                   Deno 設定
 ├─ import_map.json             bare specifier (npm:...) のマッピング
 ├─ .env.sample                 ローカル開発用環境変数テンプレ
@@ -82,6 +86,42 @@ curl -X POST http://localhost:54321/functions/v1/hello \
 
 未認証や allowed_users に無いアカウントの場合、それぞれ 401 / 403 が返る。
 
+### 5. 動作確認（extract-receipt Function）
+
+レシート画像を Storage の `receipts` バケットにアップロード後、
+そのパス（`<userId>/<uuid>.jpg` 形式）を imagePath として渡す。
+
+```bash
+# 事前準備: テスト画像を Storage にアップロード
+USER_ID=<auth.users.id>
+curl -X POST http://localhost:54321/storage/v1/object/receipts/$USER_ID/test.jpg \
+  -H "Authorization: Bearer $JWT" \
+  -H "Content-Type: image/jpeg" \
+  --data-binary @./test-receipt.jpg
+
+# OCR 実行
+curl -X POST http://localhost:54321/functions/v1/extract-receipt \
+  -H "Authorization: Bearer $JWT" \
+  -H "Content-Type: application/json" \
+  -d "{\"imagePath\":\"$USER_ID/test.jpg\"}"
+
+# 期待: OcrResult JSON
+# {
+#   "store_name": "ライフ",
+#   "purchased_at": "2026-04-27",
+#   "total_amount": 1623,
+#   "items": [{"raw_name":"玉ねぎ", ...}, ...],
+#   "discounts": [...],
+#   "confidence": 0.92
+# }
+```
+
+エラー応答:
+- 401 (`AUTH_*`): JWT 不正・ホワイトリスト外
+- 400 (`BAD_REQUEST`): imagePath 不足／パストラバーサル／他人のパス
+- 429 (`BUDGET_EXCEEDED`): hard モードで月次予算超過
+- 502 (`AI_INVALID_RESPONSE`): Flash + Pro 両方で OCR 失敗
+
 ---
 
 ## 本番デプロイ
@@ -132,7 +172,7 @@ curl -X POST $PROJECT_URL/functions/v1/hello \
 
 ### 単体テスト（vitest）
 
-`_shared/*.test.ts` の純粋関数テストは web/ から実行される:
+`_shared/*.test.ts` および各 Function 配下の純粋関数テストは web/ から実行される:
 
 ```bash
 cd web
@@ -140,9 +180,11 @@ pnpm test
 ```
 
 カバレッジ:
-- `budget.ts`: コスト計算・予算判定（14 cases）
-- `prompts.ts`: プロンプト生成・キャッシュキー（15 cases）
-- `gemini.ts`: HTTP クライアント（13 cases、fetch を vi.fn でモック）
+- `_shared/budget.ts`: コスト計算・予算判定（14 cases）
+- `_shared/prompts.ts`: プロンプト生成・キャッシュキー（15 cases）
+- `_shared/gemini.ts`: HTTP クライアント（16 cases、fetch を vi.fn でモック）
+- `_shared/sanitize.ts`: ログ用 payload マスキング（16 cases）
+- `extract-receipt/validate.ts`: Gemini 出力検証（19 cases、形式異常をすべてカバー）
 
 ### 統合テスト（手動）
 
