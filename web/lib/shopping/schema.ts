@@ -77,6 +77,8 @@ export const shoppingRecordInputSchema = z.object({
     .optional()
     .transform((v) => (v && v.length > 0 ? v : null)),
   source_type: z.enum(["receipt", "manual"]).default("manual"),
+  // Storage 内のレシート画像パス（receipts/<userId>/<uuid>.<ext>）。OCR 由来の場合に保持
+  image_paths: z.array(z.string().max(255)).max(5).default([]),
   items: z
     .array(shoppingItemInputSchema)
     .min(1, "食材を 1 つ以上追加してください")

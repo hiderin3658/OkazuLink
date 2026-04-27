@@ -24,6 +24,7 @@ export default async function EditShoppingPage({
     total_amount: record.total_amount,
     note: record.note ?? "",
     source_type: record.source_type,
+    image_paths: record.image_paths ?? [],
     items: (record.shopping_items ?? []).map((it) => ({
       raw_name: it.raw_name,
       display_name: it.display_name ?? "",
