@@ -102,3 +102,67 @@ export interface ShoppingItem {
 export type ShoppingRecordWithItems = ShoppingRecord & {
   shopping_items: ShoppingItem[];
 };
+
+// =====================================================================
+// recipes / recipe_ingredients / saved_recipes
+// =====================================================================
+export const CUISINES = [
+  "japanese",
+  "chinese",
+  "italian",
+  "french",
+  "ethnic",
+  "korean",
+  "sweets",
+  "other",
+] as const;
+
+export type Cuisine = (typeof CUISINES)[number];
+
+export const CUISINE_LABEL: Record<Cuisine, string> = {
+  japanese: "和食",
+  chinese: "中華",
+  italian: "イタリアン",
+  french: "フレンチ",
+  ethnic: "エスニック",
+  korean: "韓国",
+  sweets: "スイーツ",
+  other: "その他",
+};
+
+export type RecipeSource = "ai_generated" | "external";
+
+export interface Recipe {
+  id: string;
+  title: string;
+  cuisine: Cuisine;
+  description: string | null;
+  servings: number | null;
+  time_minutes: number | null;
+  calories_kcal: number | null;
+  steps: string[]; // jsonb array
+  source: RecipeSource;
+  generated_prompt_hash: string | null;
+  created_at: string;
+}
+
+export interface RecipeIngredient {
+  id: string;
+  recipe_id: string;
+  food_id: string | null;
+  name: string;
+  amount: string | null;
+  optional: boolean;
+}
+
+export type RecipeWithIngredients = Recipe & {
+  recipe_ingredients: RecipeIngredient[];
+};
+
+export interface SavedRecipe {
+  id: string;
+  user_id: string;
+  recipe_id: string;
+  note: string | null;
+  created_at: string;
+}
