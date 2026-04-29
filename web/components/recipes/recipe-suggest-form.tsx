@@ -73,11 +73,11 @@ export function RecipeSuggestForm({ recentIngredients, profile }: Props) {
       >
         {profile && hasProfileConstraints(profile) && (
           <p className="text-xs text-[var(--color-muted-foreground)]">
-            設定中のプロフィール（アレルギー
+            設定済みプロフィール（アレルギー
             {profile.allergies?.length ?? 0} 件・苦手{" "}
             {profile.disliked?.length ?? 0} 件
-            {profile.goal_type ? `・目標 ${profile.goal_type}` : ""}）が
-            提案条件に反映されます。
+            {profile.goal_type ? `・目標 ${profile.goal_type}` : ""}）を
+            提案条件に反映します。
           </p>
         )}
         <section className="space-y-2">

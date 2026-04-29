@@ -10,12 +10,12 @@
 //   - 本ファイル: RecipeSuggestion に id (DB 永続化後) を持つ
 // この差は意図的（DB 永続化前後の状態を表す）。
 
-import type { Cuisine } from "@/types/database";
+import type { Cuisine, GoalType } from "@/types/database";
 
 export interface SuggestRecipesProfile {
   allergies?: string[];
   disliked?: string[];
-  goal_type?: string | null;
+  goal_type?: GoalType | null;
 }
 
 export interface SuggestRecipesInput {

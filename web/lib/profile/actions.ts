@@ -33,6 +33,10 @@ export async function updateMyProfile(
   }
 
   const { display_name, goal_type, allergies, disliked_foods } = parsed.data;
+  // Note: Supabase の upsert は ON CONFLICT DO UPDATE 時に提供されたキーのみを
+  // SET する仕様のため、本関数で送らない birth_year / height_cm /
+  // target_weight_kg 等は既存値が維持される。Phase 2 でそれらの編集 UI を
+  // 追加する際は、本関数とは別の Action で個別に更新する設計を推奨。
   const { error } = await supabase
     .from("user_profiles")
     .upsert(

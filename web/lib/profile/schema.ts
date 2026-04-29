@@ -29,10 +29,11 @@ export const userProfileInputSchema = z.object({
     .max(50, "表示名は 50 文字以内")
     .optional()
     .transform((v) => (v && v.length > 0 ? v : null)),
+  // フォームでは「未設定」を空文字 "" で送ってくるため許容。enum 値以外は null 化
   goal_type: z
-    .union([z.enum(GOAL_TYPES), z.literal("")])
+    .union([z.enum(GOAL_TYPES), z.literal(""), z.null()])
     .optional()
-    .transform((v) => (v && v.length > 0 ? (v as (typeof GOAL_TYPES)[number]) : null)),
+    .transform((v) => (v === "" || v == null ? null : v)),
   allergies: tagListSchema,
   disliked_foods: tagListSchema,
 });

@@ -31,7 +31,14 @@ export default async function RecipesPage() {
 
       {recent.length === 0 ? (
         <div className="rounded-lg border border-dashed border-[var(--color-border)] bg-white p-6 text-center text-sm text-[var(--color-muted-foreground)]">
-          まずは買物を登録してください。登録した食材から候補を作ります。
+          まずは
+          <Link
+            href="/shopping/new"
+            className="text-[var(--color-primary)] underline-offset-2 hover:underline"
+          >
+            買物を登録
+          </Link>
+          してください。登録した食材から候補を作ります。
         </div>
       ) : null}
 

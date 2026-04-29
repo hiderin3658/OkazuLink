@@ -29,6 +29,8 @@ export async function listSavedRecipes(limit = 100): Promise<SavedRecipeRow[]> {
 
   // Supabase の nested select は relation の cardinality によって object / array
   // どちらでも返り得るため、unknown 経由で柔軟にハンドリングする。
+  // saved_recipes.recipe_id は recipes.id への FK で一意制約があるため、
+  // array で来た場合も常に長さ 1 という前提で先頭要素を採用する。
   type RecipeShape = SavedRecipeRow["recipe"];
   type RawRow = {
     id: string;
