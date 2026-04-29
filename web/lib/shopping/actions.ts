@@ -9,9 +9,12 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { loadFoodIndex } from "@/lib/foods/queries";
+import { attachFoodIdsToItems } from "./attach-food-ids";
 import {
   calcTotalAmount,
   shoppingRecordInputSchema,
+  type ShoppingItemParsed,
   type ShoppingRecordInput,
 } from "./schema";
 
@@ -117,7 +120,7 @@ export async function createShoppingRecord(
     return { ok: false, message: GENERIC_SAVE_ERR };
   }
 
-  const itemRows = items.map((it) => ({ ...it, shopping_record_id: rec.id }));
+  const itemRows = await attachFoodIds(supabase, items, rec.id);
   const { error: itemErr } = await supabase
     .from("shopping_items")
     .insert(itemRows);
@@ -132,6 +135,18 @@ export async function createShoppingRecord(
   revalidatePath("/shopping");
   revalidatePath("/dashboard");
   return { ok: true, id: rec.id };
+}
+
+/** items に food_id をマッチング結果から付与する。マッチしない item は null のまま。
+ *  foods マスタを 1 リクエスト分だけ読み込んでメモリ index 化する。
+ *  純粋ロジックは ./attach-food-ids.ts に分離済み（vitest 対応のため）。 */
+async function attachFoodIds(
+  supabase: SupabaseClient,
+  items: ShoppingItemParsed[],
+  shoppingRecordId: string,
+): Promise<(ShoppingItemParsed & { shopping_record_id: string; food_id: string | null })[]> {
+  const index = await loadFoodIndex(supabase);
+  return attachFoodIdsToItems(items, shoppingRecordId, index);
 }
 
 /** 買物記録 + 明細を更新（明細は一度全削除して再 INSERT する単純実装） */
@@ -182,7 +197,7 @@ export async function updateShoppingRecord(
     return { ok: false, message: GENERIC_SAVE_ERR };
   }
 
-  const itemRows = items.map((it) => ({ ...it, shopping_record_id: id }));
+  const itemRows = await attachFoodIds(supabase, items, id);
   const { error: insErr } = await supabase
     .from("shopping_items")
     .insert(itemRows);
