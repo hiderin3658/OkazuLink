@@ -197,7 +197,11 @@ Deno.serve(async (req: Request) => {
   }
 
   if (!cacheErr && cachedRecipes && cachedRecipes.length > 0) {
-    const results = mapCachedToOutput(cachedRecipes);
+    // 並行リクエストにより同じ promptHash で複数 batch が INSERT される
+    // 可能性がある（design choice: 1 hash に複数 recipes を許容）。
+    // 利用者には要求された候補数だけ返すため candidateCount で先頭を切る。
+    const all = mapCachedToOutput(cachedRecipes);
+    const results = all.slice(0, candidateCount);
     const response: SuccessResponse = { cached: true, results };
     return jsonResponse(response);
   }
@@ -286,18 +290,41 @@ Deno.serve(async (req: Request) => {
       .from("recipe_ingredients")
       .insert(ingredientsPayload);
     if (ingInsErr) {
-      // ロールバック: recipes も削除
+      // ベストエフォートのロールバック: recipes も削除する。
+      // DELETE が失敗するとレシピだけが孤児として残るため、その場合は
+      // console.error で運用者が気づけるようにする（DB 不整合の検知用）
       const ids = insertedRecipes.map((r) => r.id);
-      await serviceClient.from("recipes").delete().in("id", ids);
+      const { error: delErr } = await serviceClient
+        .from("recipes")
+        .delete()
+        .in("id", ids);
+      if (delErr) {
+        console.error(
+          "[suggest-recipes] rollback DELETE failed, recipes left as orphans:",
+          { recipeIds: ids, error: delErr },
+        );
+      }
       throw new Error(`Failed to insert recipe_ingredients: ${ingInsErr.message}`);
     }
 
     // 8. ログ
+    // PII リスク低減のため profile は記録せず、件数や有無の summary だけ残す。
+    // 詳細な allergies / disliked / goal_type は user_profiles に永続化されている。
     await logAiCall(serviceClient, {
       user_id: auth.userId,
       kind: "recipe",
       model,
-      request_payload: { ingredients, cuisine, servings, candidateCount, profile },
+      request_payload: {
+        ingredients,
+        cuisine,
+        servings,
+        candidateCount,
+        profile_summary: {
+          allergies_count: profile.allergies.length,
+          disliked_count: profile.disliked.length,
+          has_goal: profile.goal_type !== null,
+        },
+      },
       response: suggestions,
       meta: response.meta,
     });
@@ -326,7 +353,17 @@ Deno.serve(async (req: Request) => {
       user_id: auth.userId,
       kind: "recipe",
       model,
-      request_payload: { ingredients, cuisine, servings, candidateCount, profile },
+      request_payload: {
+        ingredients,
+        cuisine,
+        servings,
+        candidateCount,
+        profile_summary: {
+          allergies_count: profile.allergies.length,
+          disliked_count: profile.disliked.length,
+          has_goal: profile.goal_type !== null,
+        },
+      },
       error: detail,
     });
 
