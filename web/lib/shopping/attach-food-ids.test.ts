@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import { buildFoodIndex } from "@/lib/foods/matcher";
-import { attachFoodIdsToItems } from "./actions";
+import { attachFoodIdsToItems } from "./attach-food-ids";
 import type { ShoppingItemParsed } from "./schema";
 
 const sampleIndex = buildFoodIndex([

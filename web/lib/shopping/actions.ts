@@ -10,7 +10,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { loadFoodIndex } from "@/lib/foods/queries";
-import { matchFood } from "@/lib/foods/matcher";
+import { attachFoodIdsToItems } from "./attach-food-ids";
 import {
   calcTotalAmount,
   shoppingRecordInputSchema,
@@ -137,21 +137,9 @@ export async function createShoppingRecord(
   return { ok: true, id: rec.id };
 }
 
-/** 純粋ロジック部分を分離。items に food_id を付与する（vitest でテスト可能）。 */
-export function attachFoodIdsToItems(
-  items: ShoppingItemParsed[],
-  shoppingRecordId: string,
-  index: Map<string, string>,
-): (ShoppingItemParsed & { shopping_record_id: string; food_id: string | null })[] {
-  return items.map((it) => ({
-    ...it,
-    shopping_record_id: shoppingRecordId,
-    food_id: matchFood(it.raw_name, it.display_name, index),
-  }));
-}
-
 /** items に food_id をマッチング結果から付与する。マッチしない item は null のまま。
- *  foods マスタを 1 リクエスト分だけ読み込んでメモリ index 化する。 */
+ *  foods マスタを 1 リクエスト分だけ読み込んでメモリ index 化する。
+ *  純粋ロジックは ./attach-food-ids.ts に分離済み（vitest 対応のため）。 */
 async function attachFoodIds(
   supabase: SupabaseClient,
   items: ShoppingItemParsed[],
