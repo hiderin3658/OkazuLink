@@ -25,6 +25,7 @@ export function IngredientChipPicker({
 }: Props) {
   const [showAll, setShowAll] = useState(false);
   const [customInput, setCustomInput] = useState("");
+  const [customNotice, setCustomNotice] = useState<string | null>(null);
 
   const visible = showAll ? options : options.slice(0, initiallyVisible);
   const hidden = options.length - visible.length;
@@ -45,11 +46,13 @@ export function IngredientChipPicker({
     const trimmed = customInput.trim();
     if (!trimmed) return;
     if (value.includes(trimmed)) {
+      setCustomNotice(`「${trimmed}」は既に追加されています`);
       setCustomInput("");
       return;
     }
     onChange([...value, trimmed]);
     setCustomInput("");
+    setCustomNotice(null);
   }
 
   // 選択済みのうち options に含まれないもの = カスタム追加分
@@ -93,6 +96,10 @@ export function IngredientChipPicker({
                   key={name}
                   type="button"
                   onClick={() => toggle(name)}
+                  aria-pressed={active}
+                  aria-label={
+                    active ? `${name} を選択解除` : `${name} を選択`
+                  }
                   className={cn(
                     "rounded-full border px-3 py-1 text-xs transition-colors",
                     active
@@ -148,6 +155,14 @@ export function IngredientChipPicker({
         {customSelected.length > 0 && (
           <p className="text-xs text-[var(--color-muted-foreground)]">
             自由入力: {customSelected.join(", ")}
+          </p>
+        )}
+        {customNotice && (
+          <p
+            role="status"
+            className="text-xs text-[var(--color-muted-foreground)]"
+          >
+            {customNotice}
           </p>
         )}
       </div>

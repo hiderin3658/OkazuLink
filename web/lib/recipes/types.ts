@@ -1,6 +1,14 @@
 // suggest-recipes Edge Function の入出力型をクライアントから扱いやすい形で公開する。
-// 元の型は supabase/functions/_shared/types.ts に存在するが、Next.js 側からは
-// 直接 import できないため、ここで再宣言する（DB 由来の Recipe 型とは別物の点に注意）。
+//
+// 元の型は supabase/functions/_shared/types.ts に存在するが、そちらは Deno-style
+// の `.ts` 拡張子付き相対パス import で書かれており、Next.js (vitest) 側からは
+// import 解決できないため、本ファイルで再宣言する。
+//
+// 同期は手動運用：Edge Function 側のスキーマを変更したら、本ファイルも更新する。
+// 差分:
+//   - _shared/types.ts: RecipeSuggestion に id を持たない（Gemini 生成段階）
+//   - 本ファイル: RecipeSuggestion に id (DB 永続化後) を持つ
+// この差は意図的（DB 永続化前後の状態を表す）。
 
 import type { Cuisine } from "@/types/database";
 

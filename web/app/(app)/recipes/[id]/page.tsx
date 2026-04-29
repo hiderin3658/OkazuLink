@@ -26,6 +26,11 @@ export default async function RecipeDetailPage({
   const ingredients = recipe.recipe_ingredients ?? [];
   const required = ingredients.filter((i) => !i.optional);
   const optional = ingredients.filter((i) => i.optional);
+  // recipes.steps は jsonb のため、稀に文字列配列以外が入る可能性がある。
+  // 配列でない・要素が string でない場合は安全に空にして UI 崩壊を防ぐ。
+  const stepsArr = Array.isArray(recipe.steps)
+    ? recipe.steps.filter((s): s is string => typeof s === "string")
+    : [];
 
   return (
     <div className="space-y-6">
@@ -72,60 +77,72 @@ export default async function RecipeDetailPage({
 
       <section className="space-y-2">
         <h2 className="text-sm font-semibold">材料（{recipe.servings ?? 1} 人分）</h2>
-        <ul className="rounded-lg border border-[var(--color-border)] bg-white">
-          {required.map((it, idx) => (
-            <li
-              key={it.id}
-              className={
-                "flex items-baseline justify-between px-4 py-2 text-sm" +
-                (idx > 0 ? " border-t border-[var(--color-border)]" : "")
-              }
-            >
-              <span>{it.name}</span>
-              <span className="text-[var(--color-muted-foreground)]">
-                {it.amount ?? "適量"}
-              </span>
-            </li>
-          ))}
-          {optional.length > 0 && (
-            <>
-              <li className="border-t border-[var(--color-border)] bg-[var(--color-muted)] px-4 py-1 text-xs text-[var(--color-muted-foreground)]">
-                お好みで
+        {ingredients.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-[var(--color-border)] bg-white p-4 text-sm text-[var(--color-muted-foreground)]">
+            材料情報が登録されていません。
+          </p>
+        ) : (
+          <ul className="rounded-lg border border-[var(--color-border)] bg-white">
+            {required.map((it, idx) => (
+              <li
+                key={it.id}
+                className={
+                  "flex items-baseline justify-between px-4 py-2 text-sm" +
+                  (idx > 0 ? " border-t border-[var(--color-border)]" : "")
+                }
+              >
+                <span>{it.name}</span>
+                <span className="text-[var(--color-muted-foreground)]">
+                  {it.amount ?? "適量"}
+                </span>
               </li>
-              {optional.map((it) => (
-                <li
-                  key={it.id}
-                  className="flex items-baseline justify-between border-t border-[var(--color-border)] px-4 py-2 text-sm"
-                >
-                  <span>{it.name}</span>
-                  <span className="text-[var(--color-muted-foreground)]">
-                    {it.amount ?? "適量"}
-                  </span>
+            ))}
+            {optional.length > 0 && (
+              <>
+                <li className="border-t border-[var(--color-border)] bg-[var(--color-muted)] px-4 py-1 text-xs text-[var(--color-muted-foreground)]">
+                  お好みで
                 </li>
-              ))}
-            </>
-          )}
-        </ul>
+                {optional.map((it) => (
+                  <li
+                    key={it.id}
+                    className="flex items-baseline justify-between border-t border-[var(--color-border)] px-4 py-2 text-sm"
+                  >
+                    <span>{it.name}</span>
+                    <span className="text-[var(--color-muted-foreground)]">
+                      {it.amount ?? "適量"}
+                    </span>
+                  </li>
+                ))}
+              </>
+            )}
+          </ul>
+        )}
       </section>
 
       <section className="space-y-2">
         <h2 className="text-sm font-semibold">作り方</h2>
-        <ol className="rounded-lg border border-[var(--color-border)] bg-white">
-          {(recipe.steps ?? []).map((step, idx) => (
-            <li
-              key={idx}
-              className={
-                "flex gap-3 px-4 py-3 text-sm" +
-                (idx > 0 ? " border-t border-[var(--color-border)]" : "")
-              }
-            >
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)] text-xs font-semibold text-[var(--color-primary-foreground)]">
-                {idx + 1}
-              </span>
-              <span className="whitespace-pre-wrap">{step}</span>
-            </li>
-          ))}
-        </ol>
+        {stepsArr.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-[var(--color-border)] bg-white p-4 text-sm text-[var(--color-muted-foreground)]">
+            手順情報が登録されていません。
+          </p>
+        ) : (
+          <ol className="rounded-lg border border-[var(--color-border)] bg-white">
+            {stepsArr.map((step, idx) => (
+              <li
+                key={idx}
+                className={
+                  "flex gap-3 px-4 py-3 text-sm" +
+                  (idx > 0 ? " border-t border-[var(--color-border)]" : "")
+                }
+              >
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)] text-xs font-semibold text-[var(--color-primary-foreground)]">
+                  {idx + 1}
+                </span>
+                <span className="whitespace-pre-wrap">{step}</span>
+              </li>
+            ))}
+          </ol>
+        )}
       </section>
 
       {recipe.source === "ai_generated" && (
