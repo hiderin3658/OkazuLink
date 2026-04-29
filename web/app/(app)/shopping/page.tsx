@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Download, Plus } from "lucide-react";
 import {
   getMonthlySummary,
   listShoppingRecords,
@@ -24,13 +24,26 @@ export default async function ShoppingPage() {
             購入履歴と月別合計
           </p>
         </div>
-        <Link
-          href="/shopping/new"
-          className="flex items-center gap-1 rounded-md bg-[var(--color-primary)] px-3 py-2 text-sm font-medium text-[var(--color-primary-foreground)]"
-        >
-          <Plus size={16} aria-hidden />
-          新規登録
-        </Link>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {records.length > 0 && (
+            <a
+              href="/api/shopping/export"
+              download
+              className="inline-flex items-center gap-1 rounded-md border border-[var(--color-border)] bg-white px-3 py-2 text-sm hover:bg-[var(--color-muted)]"
+              aria-label="買物履歴を CSV でダウンロード"
+            >
+              <Download size={14} aria-hidden />
+              CSV
+            </a>
+          )}
+          <Link
+            href="/shopping/new"
+            className="flex items-center gap-1 rounded-md bg-[var(--color-primary)] px-3 py-2 text-sm font-medium text-[var(--color-primary-foreground)]"
+          >
+            <Plus size={16} aria-hidden />
+            新規登録
+          </Link>
+        </div>
       </header>
 
       <section className="space-y-2">
