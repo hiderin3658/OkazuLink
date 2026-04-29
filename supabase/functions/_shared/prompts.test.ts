@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildAdviceCacheKey,
+  buildNutritionAdvicePrompt,
   buildRecipeCacheKey,
   buildRecipeSuggestPrompt,
   buildReceiptOcrPrompt,
@@ -123,5 +125,120 @@ describe("buildRecipeCacheKey", () => {
   it("食材 trim も適用", () => {
     const c = { ...a, ingredients: ["  豚ロース  ", "玉ねぎ", "にんじん"] };
     expect(buildRecipeCacheKey(a)).toBe(buildRecipeCacheKey(c));
+  });
+});
+
+describe("buildNutritionAdvicePrompt", () => {
+  const base = {
+    monthLabel: "2026年4月",
+    ageGroup: "30-49 女性",
+    monthDays: 30,
+    achievements: [
+      { label: "タンパク質", pct: 0.8 },
+      { label: "鉄", pct: 0.5 },
+      { label: "ビタミン D", pct: 0.3 },
+      { label: "食塩", pct: 1.2, isUpperBound: true },
+    ],
+    goalType: "ダイエット",
+    allergies: ["卵"],
+    dislikedFoods: ["パクチー"],
+  };
+
+  it("system にコーチペルソナ", () => {
+    const p = buildNutritionAdvicePrompt(base);
+    expect(p.system).toContain("食生活コーチ");
+  });
+
+  it("user に対象期間・プロフィールが含まれる", () => {
+    const p = buildNutritionAdvicePrompt(base);
+    expect(p.user).toContain("2026年4月");
+    expect(p.user).toContain("30-49 女性");
+    expect(p.user).toContain("30 日間");
+    expect(p.user).toContain("ダイエット");
+  });
+
+  it("アレルギー・苦手食材が明示される", () => {
+    const p = buildNutritionAdvicePrompt(base);
+    expect(p.user).toContain("卵");
+    expect(p.user).toContain("絶対除外");
+    expect(p.user).toContain("パクチー");
+    expect(p.user).toContain("極力避ける");
+  });
+
+  it("達成率の数値が含まれ、不足/過剰のラベリング", () => {
+    const p = buildNutritionAdvicePrompt(base);
+    expect(p.user).toContain("タンパク質: 80%");
+    expect(p.user).toContain("鉄: 50%（不足）");
+    expect(p.user).toContain("ビタミン D: 30%（不足）");
+    expect(p.user).toContain("食塩: 120%（過剰）");
+  });
+
+  it("出力 JSON フォーマットが指示される", () => {
+    const p = buildNutritionAdvicePrompt(base);
+    expect(p.user).toContain("summary_comment");
+    expect(p.user).toContain("deficiencies");
+    expect(p.user).toContain("recommendations");
+  });
+
+  it("goalType / allergies / disliked が空でも動作", () => {
+    const p = buildNutritionAdvicePrompt({
+      ...base,
+      goalType: null,
+      allergies: [],
+      dislikedFoods: [],
+    });
+    expect(p.user).not.toContain("【目標】");
+    expect(p.user).not.toContain("【アレルギー");
+    expect(p.user).not.toContain("【苦手な食材");
+  });
+});
+
+describe("buildAdviceCacheKey", () => {
+  const a = {
+    monthLabel: "2026年4月",
+    ageGroup: "30-49 女性",
+    monthDays: 30,
+    achievements: [
+      { label: "鉄", pct: 0.5 },
+      { label: "タンパク質", pct: 0.8 },
+    ],
+    goalType: "ダイエット",
+  };
+
+  it("同じ入力なら同じキー", () => {
+    expect(buildAdviceCacheKey(a)).toBe(buildAdviceCacheKey(a));
+  });
+
+  it("達成率の順序差は同じキー", () => {
+    const b = {
+      ...a,
+      achievements: [
+        { label: "タンパク質", pct: 0.8 },
+        { label: "鉄", pct: 0.5 },
+      ],
+    };
+    expect(buildAdviceCacheKey(a)).toBe(buildAdviceCacheKey(b));
+  });
+
+  it("達成率の値が違えば別キー", () => {
+    const b = {
+      ...a,
+      achievements: [
+        { label: "鉄", pct: 0.6 },
+        { label: "タンパク質", pct: 0.8 },
+      ],
+    };
+    expect(buildAdviceCacheKey(a)).not.toBe(buildAdviceCacheKey(b));
+  });
+
+  it("月が違えば別キー", () => {
+    const b = { ...a, monthLabel: "2026年5月" };
+    expect(buildAdviceCacheKey(a)).not.toBe(buildAdviceCacheKey(b));
+  });
+
+  it("アレルギー順序差は同じキー", () => {
+    const b1 = { ...a, allergies: ["卵", "牛乳"] };
+    const b2 = { ...a, allergies: ["牛乳", "卵"] };
+    expect(buildAdviceCacheKey(b1)).toBe(buildAdviceCacheKey(b2));
   });
 });
