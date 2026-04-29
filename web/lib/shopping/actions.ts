@@ -137,6 +137,19 @@ export async function createShoppingRecord(
   return { ok: true, id: rec.id };
 }
 
+/** 純粋ロジック部分を分離。items に food_id を付与する（vitest でテスト可能）。 */
+export function attachFoodIdsToItems(
+  items: ShoppingItemParsed[],
+  shoppingRecordId: string,
+  index: Map<string, string>,
+): (ShoppingItemParsed & { shopping_record_id: string; food_id: string | null })[] {
+  return items.map((it) => ({
+    ...it,
+    shopping_record_id: shoppingRecordId,
+    food_id: matchFood(it.raw_name, it.display_name, index),
+  }));
+}
+
 /** items に food_id をマッチング結果から付与する。マッチしない item は null のまま。
  *  foods マスタを 1 リクエスト分だけ読み込んでメモリ index 化する。 */
 async function attachFoodIds(
@@ -145,11 +158,7 @@ async function attachFoodIds(
   shoppingRecordId: string,
 ): Promise<(ShoppingItemParsed & { shopping_record_id: string; food_id: string | null })[]> {
   const index = await loadFoodIndex(supabase);
-  return items.map((it) => ({
-    ...it,
-    shopping_record_id: shoppingRecordId,
-    food_id: matchFood(it.raw_name, it.display_name, index),
-  }));
+  return attachFoodIdsToItems(items, shoppingRecordId, index);
 }
 
 /** 買物記録 + 明細を更新（明細は一度全削除して再 INSERT する単純実装） */

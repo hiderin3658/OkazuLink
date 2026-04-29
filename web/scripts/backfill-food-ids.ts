@@ -113,6 +113,8 @@ async function main() {
   // 4. 同じ food_id への update を batch 化して一括更新
   console.log(`\nUpdating ${grouped.size} food_id groups...`);
   let updated = 0;
+  let failedItems = 0;
+  let failedGroups = 0;
   for (const [foodId, itemIds] of grouped.entries()) {
     const { error } = await supabase
       .from("shopping_items")
@@ -120,11 +122,19 @@ async function main() {
       .in("id", itemIds);
     if (error) {
       console.error(`  ✗ ${foodId} (${itemIds.length} items): ${error.message}`);
+      failedItems += itemIds.length;
+      failedGroups++;
       continue;
     }
     updated += itemIds.length;
   }
   console.log(`\n✅ Done. updated ${updated} items.`);
+  if (failedGroups > 0) {
+    console.log(
+      `⚠️ ${failedGroups} food_id groups failed (${failedItems} items not updated). Investigate the errors above.`,
+    );
+    process.exit(2);
+  }
 }
 
 main().catch((err) => {
