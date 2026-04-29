@@ -52,6 +52,7 @@ export function AdviceDisplay({ advice }: Props) {
             {advice.deficiencies.map((d, i) => (
               <li
                 key={i}
+                aria-label={`${IMPORTANCE_LABEL[d.importance]}: ${d.nutrient} 達成率 ${Math.round(d.achievement_pct)}%`}
                 className={cn(
                   "rounded-lg border p-3 text-sm",
                   IMPORTANCE_STYLE[d.importance],
@@ -60,10 +61,13 @@ export function AdviceDisplay({ advice }: Props) {
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="font-semibold">{d.nutrient}</span>
                   <span className="flex items-center gap-2 text-xs">
-                    <span className="rounded-full bg-white/60 px-2 py-0.5">
+                    <span
+                      className="rounded-full bg-white/60 px-2 py-0.5"
+                      aria-hidden
+                    >
                       {IMPORTANCE_LABEL[d.importance]}
                     </span>
-                    <span className="tabular-nums">
+                    <span className="tabular-nums" aria-hidden>
                       達成率 {Math.round(d.achievement_pct)}%
                     </span>
                   </span>

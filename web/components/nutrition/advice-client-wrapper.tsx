@@ -22,12 +22,18 @@ export function AdviceClientWrapper({ monthStart }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchAdvice();
+    // 月切替時に前の fetch がまだ in-flight なら無視する。
+    // useEffect cleanup フラグで stale な setState を防ぐ
+    let active = true;
+    fetchAdvice(false, () => active);
+    return () => {
+      active = false;
+    };
     // monthStart が変わるたびに再取得
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [monthStart]);
 
-  async function fetchAdvice(force = false) {
+  async function fetchAdvice(force = false, isActive: () => boolean = () => true) {
     setStatus("loading");
     setError(null);
     if (!force) setData(null);
@@ -37,6 +43,8 @@ export function AdviceClientWrapper({ monthStart }: Props) {
       "advise-nutrition",
       { body: { monthStart } },
     );
+    // 月切替で本実行が古くなった場合は state 更新しない（race condition 回避）
+    if (!isActive()) return;
     if (fnErr || !result) {
       setError(toErrorMessage(fnErr));
       setStatus("error");
@@ -84,7 +92,7 @@ export function AdviceClientWrapper({ monthStart }: Props) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <span className="text-xs text-[var(--color-muted-foreground)]">
-          {data.cached ? "キャッシュから表示" : "新規生成"}（{data.monthLabel} ・ {data.ageGroup}・{data.monthDays} 日）
+          {data.cached ? "前回と同じアドバイスを表示" : "新規生成"}（{data.monthLabel} ・ {data.ageGroup}・{data.monthDays} 日）
         </span>
         <button
           type="button"

@@ -76,6 +76,7 @@ export default async function NutritionPage({
         </div>
         <a
           href={`/nutrition/advice?month=${monthStart}`}
+          title="同月の再アクセスは前回結果を再利用するため API コストはかかりません"
           className="inline-flex items-center gap-1 rounded-md bg-[var(--color-primary)] px-3 py-2 text-sm font-medium text-[var(--color-primary-foreground)]"
         >
           ✨ AI アドバイス
