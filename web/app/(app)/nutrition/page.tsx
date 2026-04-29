@@ -18,7 +18,18 @@ import type { NutritionSummary } from "@/lib/nutrition/types";
 
 export const dynamic = "force-dynamic";
 
-const MONTH_RE = /^\d{4}-\d{2}-01$/;
+const MONTH_RE = /^(\d{4})-(\d{2})-01$/;
+
+/** "YYYY-MM-01" 形式かつ月が 01〜12 の範囲のみ受け入れる。
+ *  正規表現単独だと "2026-13-01" 等のあり得ない月を弾けない。 */
+function parseMonthStart(input: string | undefined): string | null {
+  if (!input) return null;
+  const match = MONTH_RE.exec(input);
+  if (!match) return null;
+  const month = Number(match[2]);
+  if (month < 1 || month > 12) return null;
+  return input;
+}
 
 export default async function NutritionPage({
   searchParams,
@@ -26,8 +37,7 @@ export default async function NutritionPage({
   searchParams: Promise<{ month?: string }>;
 }) {
   const params = await searchParams;
-  const requestedMonth = params.month && MONTH_RE.test(params.month) ? params.month : null;
-  const monthStart = requestedMonth ?? currentMonthStart();
+  const monthStart = parseMonthStart(params.month) ?? currentMonthStart();
 
   // 1. キャッシュをまず引く
   const cached = await getMonthlySummaryFromCache(monthStart);

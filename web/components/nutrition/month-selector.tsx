@@ -24,7 +24,9 @@ export function MonthSelector({ selected, monthsBack = 6, now }: Props) {
           <Link
             key={m.value}
             href={{ pathname: "/nutrition", query: { month: m.value } }}
-            aria-pressed={active}
+            // <Link> はナビゲーション用なので aria-pressed ではなく
+            // aria-current="page" を使う（W3C 推奨）
+            aria-current={active ? "page" : undefined}
             className={cn(
               "rounded-full border px-3 py-1.5 text-xs transition-colors",
               active
