@@ -165,4 +165,35 @@ describe("validateNutritionAdvice", () => {
       "葉酸",
     ]);
   });
+
+  it("deficiencies が 8 件超の場合は先頭 8 件で truncate", () => {
+    const many = Array.from({ length: 15 }, (_, i) => ({
+      nutrient: `n${i}`,
+      achievement_pct: 50,
+      importance: "low",
+      reason: "x",
+    }));
+    const out = validateNutritionAdvice({
+      ...validBase,
+      deficiencies: many,
+    });
+    expect(out.deficiencies).toHaveLength(8);
+    expect(out.deficiencies[0]!.nutrient).toBe("n0");
+    expect(out.deficiencies[7]!.nutrient).toBe("n7");
+  });
+
+  it("recommendations が 10 件超の場合は先頭 10 件で truncate", () => {
+    const many = Array.from({ length: 15 }, (_, i) => ({
+      food_name: `food${i}`,
+      reason: "x",
+      nutrients: [],
+    }));
+    const out = validateNutritionAdvice({
+      ...validBase,
+      recommendations: many,
+    });
+    expect(out.recommendations).toHaveLength(10);
+    expect(out.recommendations[0]!.food_name).toBe("food0");
+    expect(out.recommendations[9]!.food_name).toBe("food9");
+  });
 });

@@ -113,8 +113,16 @@ export function validateNutritionAdvice(raw: unknown): NutritionAdvice {
     throw new AdviceValidationError("recommendations must be an array", "recommendations");
   }
 
-  const deficiencies = r.deficiencies.map((d, i) => validateDeficiency(d, i));
-  const recommendations = r.recommendations.map((rec, i) => validateRecommendation(rec, i));
+  // 出力件数の安全マージン上限を設ける（LLM がプロンプトの件数指示を逸脱して
+  // 大量出力した場合に UI が崩れたり JSON が肥大化するのを防ぐ）
+  const MAX_DEFICIENCIES = 8;
+  const MAX_RECOMMENDATIONS = 10;
+  const deficiencies = r.deficiencies
+    .slice(0, MAX_DEFICIENCIES)
+    .map((d, i) => validateDeficiency(d, i));
+  const recommendations = r.recommendations
+    .slice(0, MAX_RECOMMENDATIONS)
+    .map((rec, i) => validateRecommendation(rec, i));
 
   return {
     summary_comment,
