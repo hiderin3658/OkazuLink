@@ -17,8 +17,11 @@ supabase/functions/
 │  ├─ ai-log.ts                ai_advice_logs への記録 + 月次コスト集計
 │  ├─ budget.ts                コスト計算と予算判定（純粋関数 / vitest 対応）
 │  ├─ cors.ts                  CORS ヘッダ
+│  ├─ env.ts                   Deno/Node 両対応の環境変数アクセス
 │  ├─ gemini.ts                Gemini API クライアント（fetch ベース）
+│  ├─ hash.ts                  SHA-256 ハッシュ（プロンプトキャッシュキー用）
 │  ├─ prompts.ts               プロンプトテンプレート（純粋関数 / vitest 対応）
+│  ├─ sanitize.ts              ai_advice_logs 用 payload マスキング
 │  ├─ types.ts                 共通型
 │  └─ *.test.ts                vitest からも実行される単体テスト
 ├─ hello/
@@ -26,6 +29,10 @@ supabase/functions/
 ├─ extract-receipt/
 │  ├─ index.ts                 レシート OCR Function（Gemini Flash + Pro フォールバック）
 │  ├─ validate.ts              Gemini 出力 JSON の検証・整形（vitest 対応）
+│  └─ validate.test.ts
+├─ suggest-recipes/
+│  ├─ index.ts                 レシピ提案 Function（プロンプトハッシュキャッシュ）
+│  ├─ validate.ts              RecipeSuggestion[] の検証・整形（vitest 対応）
 │  └─ validate.test.ts
 ├─ deno.json                   Deno 設定
 ├─ import_map.json             bare specifier (npm:...) のマッピング
@@ -122,6 +129,52 @@ curl -X POST http://localhost:54321/functions/v1/extract-receipt \
 - 429 (`BUDGET_EXCEEDED`): hard モードで月次予算超過
 - 502 (`AI_INVALID_RESPONSE`): Flash + Pro 両方で OCR 失敗
 
+### 6. 動作確認（suggest-recipes Function）
+
+食材リスト + 料理ジャンルでレシピ候補を生成。同じ条件は `recipes` テーブルに
+キャッシュされる。
+
+```bash
+curl -X POST http://localhost:54321/functions/v1/suggest-recipes \
+  -H "Authorization: Bearer $JWT" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ingredients": ["豚ロース", "玉ねぎ", "にんじん"],
+    "cuisine": "japanese",
+    "servings": 1,
+    "candidateCount": 3,
+    "profile": {
+      "allergies": [],
+      "disliked": ["パクチー"],
+      "goal_type": "diet"
+    }
+  }'
+
+# 期待: { cached: boolean, results: RecipeOut[] }
+# - 初回: cached=false, Gemini 呼出で 3 件のレシピ生成 + recipes/recipe_ingredients に保存
+# - 2 回目以降（同条件）: cached=true, DB から即返却（Gemini 呼出なし）
+#
+# RecipeOut:
+# {
+#   "id": "uuid",
+#   "title": "豚バラと玉ねぎの生姜焼き",
+#   "cuisine": "japanese",
+#   "description": "...",
+#   "servings": 1,
+#   "time_minutes": 15,
+#   "calories_kcal": 480,
+#   "ingredients": [{"name": "豚ロース", "amount": "100g", "optional": false}, ...],
+#   "steps": ["...", "..."]
+# }
+```
+
+エラー応答:
+- 400 (`BAD_REQUEST`): ingredients 空 / cuisine 不正 / 範囲外
+- 429 (`BUDGET_EXCEEDED`): hard モードで月次予算超過
+- 502 (`AI_INVALID_RESPONSE`): JSON パース失敗 / 検証エラー
+
+cuisine の許容値: `japanese | chinese | italian | french | ethnic | korean | sweets | other`
+
 ---
 
 ## 本番デプロイ
@@ -184,7 +237,9 @@ pnpm test
 - `_shared/prompts.ts`: プロンプト生成・キャッシュキー（15 cases）
 - `_shared/gemini.ts`: HTTP クライアント（16 cases、fetch を vi.fn でモック）
 - `_shared/sanitize.ts`: ログ用 payload マスキング（16 cases）
-- `extract-receipt/validate.ts`: Gemini 出力検証（19 cases、形式異常をすべてカバー）
+- `_shared/hash.ts`: SHA-256 ハッシュ（6 cases、標準値との照合含む）
+- `extract-receipt/validate.ts`: Gemini OCR 出力検証（19 cases）
+- `suggest-recipes/validate.ts`: Gemini レシピ出力検証（18 cases）
 
 ### 統合テスト（手動）
 
