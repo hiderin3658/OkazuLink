@@ -90,3 +90,25 @@ export interface RecipeSuggestion {
   ingredients: RecipeIngredientSuggestion[];
   steps: string[];
 }
+
+/** 栄養アドバイス（advise-nutrition 用） */
+export type AdviceImportance = "high" | "medium" | "low";
+
+export interface NutritionDeficiency {
+  nutrient: string;
+  achievement_pct: number;
+  importance: AdviceImportance;
+  reason: string;
+}
+
+export interface NutritionRecommendation {
+  food_name: string;
+  reason: string;
+  nutrients: string[];
+}
+
+export interface NutritionAdvice {
+  summary_comment: string;
+  deficiencies: NutritionDeficiency[];
+  recommendations: NutritionRecommendation[];
+}

@@ -34,6 +34,10 @@ supabase/functions/
 │  ├─ index.ts                 レシピ提案 Function（プロンプトハッシュキャッシュ）
 │  ├─ validate.ts              RecipeSuggestion[] の検証・整形（vitest 対応）
 │  └─ validate.test.ts
+├─ advise-nutrition/
+│  ├─ index.ts                 月次栄養アドバイス Function（Gemini 3 Pro）
+│  ├─ validate.ts              NutritionAdvice の検証・整形（vitest 対応）
+│  └─ validate.test.ts
 ├─ deno.json                   Deno 設定
 ├─ import_map.json             bare specifier (npm:...) のマッピング
 ├─ .env.sample                 ローカル開発用環境変数テンプレ

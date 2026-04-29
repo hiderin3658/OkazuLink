@@ -128,3 +128,105 @@ export function buildRecipeCacheKey(input: BuildRecipeSuggestPromptInput): strin
   };
   return JSON.stringify(norm);
 }
+
+// =====================================================================
+// advise-nutrition: 月次栄養アドバイスプロンプト
+// =====================================================================
+
+export interface BuildNutritionAdvicePromptInput {
+  monthLabel: string; // "2026年4月" 等の人間可読ラベル
+  ageGroup: string; // "30-49 女性" のような表記
+  monthDays: number;
+  /** 達成率の高い順 / 低い順を呼出側でソート済みで渡す */
+  achievements: { label: string; pct: number; isUpperBound?: boolean }[];
+  goalType?: string | null;
+  allergies?: string[];
+  dislikedFoods?: string[];
+}
+
+export function buildNutritionAdvicePrompt(input: BuildNutritionAdvicePromptInput): {
+  system: string;
+  user: string;
+} {
+  const {
+    monthLabel,
+    ageGroup,
+    monthDays,
+    achievements,
+    goalType,
+    allergies = [],
+    dislikedFoods = [],
+  } = input;
+
+  const lines: string[] = [];
+  lines.push(`【対象期間】${monthLabel}（${monthDays} 日間）`);
+  lines.push(`【プロフィール】${ageGroup}`);
+  if (goalType) lines.push(`【目標】${goalType}`);
+  if (allergies.length > 0) lines.push(`【アレルギー（絶対除外）】${allergies.join(", ")}`);
+  if (dislikedFoods.length > 0) lines.push(`【苦手な食材（極力避ける）】${dislikedFoods.join(", ")}`);
+
+  const achievementBlock = achievements
+    .map((a) => {
+      const pct = Math.round(a.pct * 100);
+      const flag = a.isUpperBound
+        ? pct > 100
+          ? "（過剰）"
+          : ""
+        : pct < 70
+          ? "（不足）"
+          : pct >= 70 && pct < 100
+            ? "（やや不足）"
+            : "";
+      return `  - ${a.label}: ${pct}%${flag}`;
+    })
+    .join("\n");
+
+  return {
+    system: SYSTEM_PERSONA,
+    user: `下記の栄養状況を踏まえ、来月の食生活改善アドバイスを生成してください。
+
+${lines.join("\n")}
+
+【推奨摂取量比（達成率）】
+${achievementBlock}
+
+下記の JSON 構造で返してください:
+
+{
+  "summary_comment": "3〜4 文の総評（達成できた点・気をつけたい点を簡潔に）",
+  "deficiencies": [
+    { "nutrient": "栄養素ラベル", "achievement_pct": 数値(0-200), "importance": "high"|"medium"|"low", "reason": "1〜2 文の理由" }
+  ],
+  "recommendations": [
+    { "food_name": "食材名（一般的な和名）", "reason": "なぜこの食材か（1〜2 文）", "nutrients": ["補える栄養素ラベル", ...] }
+  ]
+}
+
+注意:
+- アレルギー食材は絶対に推奨しない
+- 苦手な食材は極力避ける
+- 目標を踏まえた具体的・実行可能なアドバイス
+- 推奨食材は 4〜6 件
+- 不足栄養素は 3〜5 件、達成率の低い順を優先
+- 食塩等の上限超過は importance="high" で警告
+
+JSON のみを返してください。前置きや説明文は不要です。`,
+  };
+}
+
+/** advise-nutrition のキャッシュキー文字列（ai_advice_logs.request_payload に保存して引く） */
+export function buildAdviceCacheKey(input: BuildNutritionAdvicePromptInput): string {
+  const norm = {
+    month: input.monthLabel,
+    age: input.ageGroup,
+    days: input.monthDays,
+    ach: input.achievements
+      .map((a) => `${a.label}:${Math.round(a.pct * 100)}${a.isUpperBound ? "u" : ""}`)
+      .sort()
+      .join("|"),
+    goal: input.goalType ?? "",
+    allergies: [...(input.allergies ?? [])].sort().join("|"),
+    disliked: [...(input.dislikedFoods ?? [])].sort().join("|"),
+  };
+  return JSON.stringify(norm);
+}
