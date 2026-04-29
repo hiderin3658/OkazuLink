@@ -67,11 +67,20 @@ export default async function NutritionPage({
 
   return (
     <div className="space-y-6">
-      <header className="space-y-2">
-        <h1 className="text-2xl font-bold">栄養レポート</h1>
-        <p className="text-sm text-[var(--color-muted-foreground)]">
-          月別の食生活の偏りを把握できます。買物に紐づく食材から自動集計しています。
-        </p>
+      <header className="flex items-start justify-between gap-2">
+        <div>
+          <h1 className="text-2xl font-bold">栄養レポート</h1>
+          <p className="text-sm text-[var(--color-muted-foreground)]">
+            月別の食生活の偏りを把握できます。買物に紐づく食材から自動集計しています。
+          </p>
+        </div>
+        <a
+          href={`/nutrition/advice?month=${monthStart}`}
+          title="同月の再アクセスは前回結果を再利用するため API コストはかかりません"
+          className="inline-flex items-center gap-1 rounded-md bg-[var(--color-primary)] px-3 py-2 text-sm font-medium text-[var(--color-primary-foreground)]"
+        >
+          ✨ AI アドバイス
+        </a>
       </header>
 
       <MonthSelector selected={monthStart} />
