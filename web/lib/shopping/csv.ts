@@ -35,11 +35,26 @@ const SOURCE_LABEL = {
 } as const;
 
 /** 1 セルの値を CSV 用にエスケープする。
- *  カンマ・改行・ダブルクォートを含む場合は "..." で囲み、内側の " は二重に。 */
+ *
+ *  対応:
+ *  - カンマ・改行・ダブルクォートを含む場合は "..." で囲み、内側の " は二重に
+ *  - Excel/Numbers の数式注入（CSV injection）対策として、=, +, -, @,
+ *    タブ・キャリッジリターン で始まる値は先頭に半角シングルクォート ' を付与
+ *    （= "=1+1" のようなセル値が数式実行されるのを防止）
+ *
+ *  References:
+ *  - https://owasp.org/www-community/attacks/CSV_Injection
+ */
+const FORMULA_PREFIX_RE = /^[=+\-@\t\r]/;
+
 export function escapeCsvCell(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return "";
-  const s = String(value);
+  let s = String(value);
   if (s === "") return "";
+  // 数式注入対策（数値型はそのまま安全な数値として残したいので number は除外）
+  if (typeof value === "string" && FORMULA_PREFIX_RE.test(s)) {
+    s = `'${s}`;
+  }
   if (/[",\r\n]/.test(s)) {
     return `"${s.replace(/"/g, '""')}"`;
   }

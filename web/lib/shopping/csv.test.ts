@@ -78,6 +78,32 @@ describe("escapeCsvCell", () => {
       '"彼は""こんにちは""と言った"',
     );
   });
+
+  // CSV Injection（Excel Formula Injection）対策
+  it("'=' で始まる文字列は先頭にシングルクォートを付与", () => {
+    expect(escapeCsvCell("=1+1")).toBe("'=1+1");
+  });
+
+  it("'+', '-', '@' で始まる文字列も同様", () => {
+    expect(escapeCsvCell("+1234567")).toBe("'+1234567");
+    expect(escapeCsvCell("-DDE()")).toBe("'-DDE()");
+    expect(escapeCsvCell("@SUM(A1)")).toBe("'@SUM(A1)");
+  });
+
+  it("タブやキャリッジリターン始まりも対象", () => {
+    expect(escapeCsvCell("\t=1+1")).toContain("'");
+  });
+
+  it("数値型は formula injection 対策不要（負の数は数値として残す）", () => {
+    // 負数は number → string で "-100" だが、value が number なので prefix 付与しない
+    expect(escapeCsvCell(-100)).toBe("-100");
+  });
+
+  it("formula 文字とカンマが両方含まれる場合: 先頭にシングルクォート + 全体を quote", () => {
+    const v = "=1, 2";
+    const out = escapeCsvCell(v);
+    expect(out).toBe("\"'=1, 2\"");
+  });
 });
 
 describe("buildShoppingCsv", () => {
@@ -150,6 +176,37 @@ describe("buildShoppingCsv", () => {
     };
     const out = buildShoppingCsv([withSpecial]);
     expect(out).toContain('"週末, 買い出し\n夜"');
+  });
+
+  it("数量に小数が含まれる場合も正しく出力", () => {
+    const withDecimal: ShoppingRecordWithItems = {
+      ...sampleRecord,
+      shopping_items: [
+        {
+          ...baseItem,
+          raw_name: "鶏もも",
+          category: "meat",
+          quantity: 0.25,
+          unit: "kg",
+          total_price: 350,
+          discount: 0,
+        },
+      ],
+    };
+    const out = buildShoppingCsv([withDecimal]);
+    expect(out).toContain("0.25");
+    expect(out).toContain("kg");
+  });
+
+  it("店舗名に数式文字が含まれても安全に出力（先頭シングルクォート付与）", () => {
+    const malicious: ShoppingRecordWithItems = {
+      ...sampleRecord,
+      store_name: "=cmd|'/c calc'!A1",
+    };
+    const out = buildShoppingCsv([malicious]);
+    // formula injection 対策により先頭に ' が付く（カンマ等を含まないので CSV
+    // 全体クオートはされない）
+    expect(out).toContain("'=cmd|");
   });
 
   it("複数 record の場合は順序を保つ", () => {

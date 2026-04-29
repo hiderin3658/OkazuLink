@@ -22,14 +22,17 @@ export async function GET() {
     return new Response("Unauthorized", { status: 401 });
   }
 
+  // 全件取得。Phase 1 では件数が少ない（個人利用）想定。
+  // 将来運用で 1,000 件超えたらサーバー側ストリーミング or 月別ダウンロードに切替予定
   const { data, error } = await supabase
     .from("shopping_records")
     .select("*, shopping_items(*)")
     .order("purchased_at", { ascending: false })
     .order("created_at", { ascending: false });
   if (error) {
-    console.error("[shopping/export] query failed:", error);
-    return new Response("Failed to query shopping records", { status: 500 });
+    // 詳細エラーはサーバーログにのみ流し、クライアントには汎用文言を返す
+    console.error("[shopping/export] query failed:", error.message);
+    return new Response("Failed to export shopping records", { status: 500 });
   }
 
   const records = (data ?? []) as ShoppingRecordWithItems[];
