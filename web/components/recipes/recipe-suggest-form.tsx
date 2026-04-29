@@ -15,15 +15,18 @@ import { CuisinePicker } from "./cuisine-picker";
 import { RecipeCard } from "./recipe-card";
 import type {
   SuggestRecipesInput,
+  SuggestRecipesProfile,
   SuggestRecipesResponse,
 } from "@/lib/recipes/types";
 
 interface Props {
   /** 過去の買物履歴から取り出した直近の食材名（チップ候補） */
   recentIngredients: string[];
+  /** ユーザープロフィール由来の制約。設定済みなら Edge Function に送る */
+  profile?: SuggestRecipesProfile;
 }
 
-export function RecipeSuggestForm({ recentIngredients }: Props) {
+export function RecipeSuggestForm({ recentIngredients, profile }: Props) {
   const [ingredients, setIngredients] = useState<string[]>([]);
   const [cuisine, setCuisine] = useState<Cuisine>("japanese");
   const [candidateCount, setCandidateCount] = useState(4);
@@ -47,6 +50,7 @@ export function RecipeSuggestForm({ recentIngredients }: Props) {
       cuisine,
       candidateCount,
       servings: 1,
+      ...(profile ? { profile } : {}),
     };
     const { data, error: fnErr } = await supabase.functions.invoke<SuggestRecipesResponse>(
       "suggest-recipes",
@@ -67,6 +71,15 @@ export function RecipeSuggestForm({ recentIngredients }: Props) {
         onSubmit={handleSubmit}
         className="space-y-4 rounded-lg border border-[var(--color-border)] bg-white p-4"
       >
+        {profile && hasProfileConstraints(profile) && (
+          <p className="text-xs text-[var(--color-muted-foreground)]">
+            設定済みプロフィール（アレルギー
+            {profile.allergies?.length ?? 0} 件・苦手{" "}
+            {profile.disliked?.length ?? 0} 件
+            {profile.goal_type ? `・目標 ${profile.goal_type}` : ""}）を
+            提案条件に反映します。
+          </p>
+        )}
         <section className="space-y-2">
           <h2 className="text-sm font-semibold">手持ちの食材</h2>
           <IngredientChipPicker
@@ -148,6 +161,14 @@ export function RecipeSuggestForm({ recentIngredients }: Props) {
         </section>
       )}
     </div>
+  );
+}
+
+function hasProfileConstraints(p: SuggestRecipesProfile): boolean {
+  return (
+    (p.allergies?.length ?? 0) > 0 ||
+    (p.disliked?.length ?? 0) > 0 ||
+    Boolean(p.goal_type)
   );
 }
 

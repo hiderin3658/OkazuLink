@@ -1,10 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
+import { getMyProfile } from "@/lib/profile/queries";
+import { ProfileForm } from "@/components/profile/profile-form";
+
+export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const [
+    {
+      data: { user },
+    },
+    profile,
+  ] = await Promise.all([supabase.auth.getUser(), getMyProfile()]);
 
   return (
     <div className="space-y-6">
@@ -30,11 +37,14 @@ export default async function SettingsPage() {
         </form>
       </section>
 
-      <section className="rounded-lg border border-[var(--color-border)] bg-white p-4">
-        <h2 className="text-sm font-semibold">プロフィール</h2>
-        <p className="mt-2 text-xs text-[var(--color-muted-foreground)]">
-          Phase 2 以降で身長／目標体重／目標タイプ／アレルギー等を入力可能にします。
-        </p>
+      <section className="rounded-lg border border-[var(--color-border)] bg-white p-4 space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold">プロフィール</h2>
+          <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
+            アレルギー・苦手な食材・目標は AI レシピ提案のプロンプトに反映されます
+          </p>
+        </div>
+        <ProfileForm initial={profile} />
       </section>
     </div>
   );

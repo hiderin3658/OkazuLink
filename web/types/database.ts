@@ -11,13 +11,23 @@ export interface AllowedUser {
   created_at: string;
 }
 
+export const GOAL_TYPES = ["diet", "muscle", "maintenance", "custom"] as const;
+export type GoalType = (typeof GOAL_TYPES)[number];
+
+export const GOAL_TYPE_LABEL: Record<GoalType, string> = {
+  diet: "ダイエット",
+  muscle: "筋力アップ",
+  maintenance: "健康維持",
+  custom: "カスタム",
+};
+
 export interface UserProfile {
   user_id: string;
   display_name: string | null;
   birth_year: number | null;
   height_cm: number | null;
   target_weight_kg: number | null;
-  goal_type: "diet" | "muscle" | "maintenance" | "custom" | null;
+  goal_type: GoalType | null;
   allergies: string[];
   disliked_foods: string[];
   created_at: string;
