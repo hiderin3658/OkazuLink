@@ -11,6 +11,7 @@ import { aggregateMonthly } from "./aggregate";
 import {
   fetchFoodsForAggregation,
   fetchMonthlyShoppingData,
+  NutritionQueryError,
 } from "./queries";
 import type { NutritionSummary } from "./types";
 
@@ -36,9 +37,24 @@ export async function recomputeMonthlySummary(
     return { ok: false, message: "認証が必要です。再度ログインしてください。" };
   }
 
-  // 1. 当月の shopping データ + foods をロード
-  const { records } = await fetchMonthlyShoppingData(supabase, user.id, monthStart);
-  const foods = await fetchFoodsForAggregation(supabase, records);
+  // 1. 当月の shopping データ + foods をロード（fetch エラーは UI 用メッセージに変換）
+  let records;
+  let foods;
+  try {
+    const data = await fetchMonthlyShoppingData(supabase, user.id, monthStart);
+    records = data.records;
+    foods = await fetchFoodsForAggregation(supabase, records);
+  } catch (err) {
+    if (err instanceof NutritionQueryError) {
+      const stage =
+        err.cause === "fetch_records" ? "買物履歴の取得" : "栄養素データの取得";
+      return {
+        ok: false,
+        message: `${stage}に失敗しました。少し時間をおいて再度お試しください。`,
+      };
+    }
+    throw err;
+  }
 
   // 2. 純粋関数で集計
   const summary = aggregateMonthly(records, foods);

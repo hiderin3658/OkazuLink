@@ -5,15 +5,35 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
-import type { NutritionPer100g, NutritionSummary } from "./types";
+import { NUTRIENT_KEYS, type NutrientKey, type NutritionPer100g, type NutritionSummary } from "./types";
 
 const FRESH_HOURS = 24;
 
-/** 月初日（YYYY-MM-01）を YYYY-MM-DD で返す。当月を引く目的で使う。 */
+/** 月初日（YYYY-MM-01）を JST (Asia/Tokyo) 基準で返す。
+ *  ユーザーの体感「今月／先月」と一致させるため UTC ではなく JST で計算。
+ *  date 型カラム (purchased_at) も論理的にはローカル日付として扱える前提。 */
 export function currentMonthStart(now: Date = new Date()): string {
-  const y = now.getUTCFullYear();
-  const m = now.getUTCMonth() + 1;
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const y = jst.getUTCFullYear();
+  const m = jst.getUTCMonth() + 1;
   return `${y}-${String(m).padStart(2, "0")}-01`;
+}
+
+/** foods.nutrition_per_100g の jsonb を安全に NutritionPer100g 型に絞り込む。
+ *  予期しないキーや非数値（string, undefined 等）は除外し、null と number のみ保持。 */
+function sanitizeNutritionPer100g(raw: unknown): NutritionPer100g {
+  if (!raw || typeof raw !== "object") return {};
+  const obj = raw as Record<string, unknown>;
+  const out: NutritionPer100g = {};
+  for (const key of NUTRIENT_KEYS as readonly NutrientKey[]) {
+    const v = obj[key];
+    if (typeof v === "number" && Number.isFinite(v)) {
+      out[key] = v;
+    } else if (v === null) {
+      out[key] = null;
+    }
+  }
+  return out;
 }
 
 /** 任意の月の翌月初日（exclusive end）を返す。範囲クエリに使う。 */
@@ -27,6 +47,18 @@ export function nextMonthStart(monthStart: string): string {
 
 interface MonthlyShoppingData {
   records: { shopping_items: { food_id: string | null; quantity: number | null; unit: string | null }[] }[];
+}
+
+/** DB アクセス層のエラー。actions.ts で catch して UI 用メッセージに変換する */
+export class NutritionQueryError extends Error {
+  constructor(
+    message: string,
+    public readonly cause: "fetch_records" | "fetch_foods",
+    public readonly detail?: string,
+  ) {
+    super(message);
+    this.name = "NutritionQueryError";
+  }
 }
 
 /** 指定月の shopping_records と明細を取得（items の food_id / quantity / unit のみ） */
@@ -45,7 +77,11 @@ export async function fetchMonthlyShoppingData(
     .lt("purchased_at", until);
   if (error) {
     console.error("[nutrition] fetchMonthlyShoppingData failed:", error.message);
-    return { records: [] };
+    throw new NutritionQueryError(
+      "Failed to load monthly shopping records",
+      "fetch_records",
+      error.message,
+    );
   }
   return {
     records: (data ?? []) as MonthlyShoppingData["records"],
@@ -70,11 +106,15 @@ export async function fetchFoodsForAggregation(
     .in("id", [...ids]);
   if (error) {
     console.error("[nutrition] fetchFoodsForAggregation failed:", error.message);
-    return new Map();
+    throw new NutritionQueryError(
+      "Failed to load foods nutrition data",
+      "fetch_foods",
+      error.message,
+    );
   }
   const map = new Map<string, NutritionPer100g>();
-  for (const row of (data ?? []) as { id: string; nutrition_per_100g: NutritionPer100g }[]) {
-    map.set(row.id, row.nutrition_per_100g ?? {});
+  for (const row of (data ?? []) as { id: string; nutrition_per_100g: unknown }[]) {
+    map.set(row.id, sanitizeNutritionPer100g(row.nutrition_per_100g));
   }
   return map;
 }
