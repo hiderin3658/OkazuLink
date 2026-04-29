@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { ShoppingForm } from "@/components/shopping/shopping-form";
+import { NewShoppingFlow } from "@/components/shopping/new-shopping-flow";
 
 export default function NewShoppingPage() {
   return (
@@ -15,11 +15,11 @@ export default function NewShoppingPage() {
         </Link>
         <h1 className="text-2xl font-bold">買物を登録</h1>
         <p className="text-sm text-[var(--color-muted-foreground)]">
-          手入力モード（レシート画像取り込みは Phase 1 後半で対応予定）
+          レシート撮影で自動入力するか、手入力で食材を追加できます
         </p>
       </header>
 
-      <ShoppingForm mode="create" />
+      <NewShoppingFlow />
     </div>
   );
 }

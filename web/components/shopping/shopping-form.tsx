@@ -29,7 +29,8 @@ import {
 type Props =
   | {
       mode: "create";
-      initial?: undefined;
+      /** OCR からのプリフィル等、create 時にも初期値を渡せる */
+      initial?: ShoppingRecordInput;
     }
   | {
       mode: "edit";
@@ -43,16 +44,15 @@ export function ShoppingForm(props: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const today = new Date().toISOString().slice(0, 10);
-  const initial: ShoppingRecordInput = props.mode === "edit"
-    ? props.initial
-    : {
-        purchased_at: today,
-        store_name: "",
-        total_amount: 0,
-        note: "",
-        source_type: "manual",
-        items: [{ ...emptyItem }],
-      };
+  const initial: ShoppingRecordInput = props.initial ?? {
+    purchased_at: today,
+    store_name: "",
+    total_amount: 0,
+    note: "",
+    source_type: "manual",
+    image_paths: [],
+    items: [{ ...emptyItem }],
+  };
 
   const [purchasedAt, setPurchasedAt] = useState(initial.purchased_at);
   const [storeName, setStoreName] = useState(initial.store_name ?? "");
@@ -63,6 +63,9 @@ export function ShoppingForm(props: Props) {
   const [items, setItems] = useState<ShoppingItemInput[]>(
     initial.items.length > 0 ? initial.items : [{ ...emptyItem }],
   );
+  // 画像パス（OCR 経由のときのみ非空）。表示はバッジに集約して編集 UI は出さない
+  const imagePaths = initial.image_paths ?? [];
+  const sourceType = initial.source_type ?? "manual";
 
   const computedTotal = useMemo(
     () =>
@@ -96,7 +99,8 @@ export function ShoppingForm(props: Props) {
       store_name: storeName,
       total_amount: Number(totalAmount) || 0,
       note,
-      source_type: initial.source_type,
+      source_type: sourceType,
+      image_paths: imagePaths,
       items,
     };
 
@@ -131,6 +135,11 @@ export function ShoppingForm(props: Props) {
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* ヘッダー */}
       <section className="rounded-lg border border-[var(--color-border)] bg-white p-4 space-y-3">
+        {sourceType === "receipt" && imagePaths.length > 0 && (
+          <p className="text-xs text-[var(--color-muted-foreground)]">
+            📷 レシート画像 {imagePaths.length} 枚から自動入力されました
+          </p>
+        )}
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="購入日">
             <input
