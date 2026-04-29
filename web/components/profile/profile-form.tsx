@@ -144,70 +144,46 @@ export function ProfileForm({ initial }: Props) {
       {/* Phase 2 追加: 体格情報。栄養レポートの推奨摂取量計算に利用 */}
       <fieldset className="space-y-3 rounded-md border border-[var(--color-border)] p-3">
         <legend className="px-1 text-xs text-[var(--color-muted-foreground)]">
-          体格情報（栄養レポートの推奨摂取量に反映）
+          体格情報（任意・栄養レポートの推奨摂取量に反映）
         </legend>
 
         <div className="grid gap-3 sm:grid-cols-3">
-          <div>
-            <label
-              htmlFor="profile-birth-year"
-              className="mb-1 block text-xs text-[var(--color-muted-foreground)]"
-            >
-              生年（西暦）
-            </label>
-            <input
-              id="profile-birth-year"
-              type="number"
-              inputMode="numeric"
-              min={1900}
-              max={new Date().getFullYear()}
-              step={1}
-              value={birthYear}
-              onChange={(e) => setBirthYear(e.target.value)}
-              placeholder="1990"
-              className="w-full rounded-md border border-[var(--color-border)] bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="profile-height"
-              className="mb-1 block text-xs text-[var(--color-muted-foreground)]"
-            >
-              身長 (cm)
-            </label>
-            <input
-              id="profile-height"
-              type="number"
-              inputMode="decimal"
-              min={50}
-              max={250}
-              step={0.1}
-              value={heightCm}
-              onChange={(e) => setHeightCm(e.target.value)}
-              placeholder="160"
-              className="w-full rounded-md border border-[var(--color-border)] bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="profile-target"
-              className="mb-1 block text-xs text-[var(--color-muted-foreground)]"
-            >
-              目標体重 (kg)
-            </label>
-            <input
-              id="profile-target"
-              type="number"
-              inputMode="decimal"
-              min={20}
-              max={300}
-              step={0.1}
-              value={targetWeight}
-              onChange={(e) => setTargetWeight(e.target.value)}
-              placeholder="55"
-              className="w-full rounded-md border border-[var(--color-border)] bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
-            />
-          </div>
+          <NumberField
+            id="profile-birth-year"
+            label="生年（西暦）"
+            value={birthYear}
+            onChange={setBirthYear}
+            min={1900}
+            max={new Date().getFullYear()}
+            step={1}
+            inputMode="numeric"
+            placeholder="1990"
+            errors={feedback?.ok === false ? feedback.fieldErrors?.birth_year : undefined}
+          />
+          <NumberField
+            id="profile-height"
+            label="身長 (cm)"
+            value={heightCm}
+            onChange={setHeightCm}
+            min={50}
+            max={250}
+            step={0.1}
+            inputMode="decimal"
+            placeholder="160"
+            errors={feedback?.ok === false ? feedback.fieldErrors?.height_cm : undefined}
+          />
+          <NumberField
+            id="profile-target"
+            label="目標体重 (kg)"
+            value={targetWeight}
+            onChange={setTargetWeight}
+            min={20}
+            max={300}
+            step={0.1}
+            inputMode="decimal"
+            placeholder="55"
+            errors={feedback?.ok === false ? feedback.fieldErrors?.target_weight_kg : undefined}
+          />
         </div>
 
         <p className="text-xs text-[var(--color-muted-foreground)]">
@@ -243,5 +219,52 @@ export function ProfileForm({ initial }: Props) {
         </button>
       </div>
     </form>
+  );
+}
+
+/** 数値入力 + フィールドエラー表示の共通化（生年・身長・目標体重） */
+function NumberField({
+  id,
+  label,
+  value,
+  onChange,
+  errors,
+  ...inputProps
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (next: string) => void;
+  errors?: string[];
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, "id" | "value" | "onChange" | "type" | "className">) {
+  const hasError = (errors?.length ?? 0) > 0;
+  return (
+    <div>
+      <label
+        htmlFor={id}
+        className="mb-1 block text-xs text-[var(--color-muted-foreground)]"
+      >
+        {label}
+      </label>
+      <input
+        id={id}
+        type="number"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-invalid={hasError || undefined}
+        className={cn(
+          "w-full rounded-md border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)]",
+          hasError
+            ? "border-[var(--color-destructive)]"
+            : "border-[var(--color-border)]",
+        )}
+        {...inputProps}
+      />
+      {hasError && (
+        <p className="mt-1 text-xs text-[var(--color-destructive)]">
+          {errors?.[0]}
+        </p>
+      )}
+    </div>
   );
 }
