@@ -77,4 +77,91 @@ describe("userProfileInputSchema", () => {
     });
     expect(out.success).toBe(false);
   });
+
+  // Phase 2 追加: birth_year / height_cm / target_weight_kg
+  it("birth_year 未指定は null", () => {
+    const out = userProfileInputSchema.safeParse({});
+    expect(out.success).toBe(true);
+    if (out.success) {
+      expect(out.data.birth_year).toBeNull();
+      expect(out.data.height_cm).toBeNull();
+      expect(out.data.target_weight_kg).toBeNull();
+    }
+  });
+
+  it("birth_year 数値・文字列の両方を受け入れる", () => {
+    expect(userProfileInputSchema.safeParse({ birth_year: 1990 })).toMatchObject({
+      success: true,
+      data: { birth_year: 1990 },
+    });
+    expect(userProfileInputSchema.safeParse({ birth_year: "1990" })).toMatchObject({
+      success: true,
+      data: { birth_year: 1990 },
+    });
+  });
+
+  it("birth_year 空文字は null", () => {
+    const out = userProfileInputSchema.safeParse({ birth_year: "" });
+    expect(out.success).toBe(true);
+    if (out.success) expect(out.data.birth_year).toBeNull();
+  });
+
+  it("birth_year 1899 はエラー（1900 以上）", () => {
+    expect(
+      userProfileInputSchema.safeParse({ birth_year: 1899 }).success,
+    ).toBe(false);
+  });
+
+  it("birth_year は未来年エラー", () => {
+    const future = new Date().getFullYear() + 1;
+    expect(
+      userProfileInputSchema.safeParse({ birth_year: future }).success,
+    ).toBe(false);
+  });
+
+  it("birth_year 小数はエラー", () => {
+    expect(
+      userProfileInputSchema.safeParse({ birth_year: 1990.5 }).success,
+    ).toBe(false);
+  });
+
+  it("birth_year 不正値はエラー", () => {
+    expect(
+      userProfileInputSchema.safeParse({ birth_year: "abc" }).success,
+    ).toBe(false);
+  });
+
+  it("height_cm 範囲外（49 以下 / 251 以上）はエラー", () => {
+    expect(userProfileInputSchema.safeParse({ height_cm: 49 }).success).toBe(false);
+    expect(userProfileInputSchema.safeParse({ height_cm: 251 }).success).toBe(false);
+  });
+
+  it("height_cm 小数 OK（160.5）", () => {
+    const out = userProfileInputSchema.safeParse({ height_cm: 160.5 });
+    expect(out.success).toBe(true);
+    if (out.success) expect(out.data.height_cm).toBe(160.5);
+  });
+
+  it("target_weight_kg 範囲外はエラー", () => {
+    expect(
+      userProfileInputSchema.safeParse({ target_weight_kg: 19 }).success,
+    ).toBe(false);
+    expect(
+      userProfileInputSchema.safeParse({ target_weight_kg: 301 }).success,
+    ).toBe(false);
+  });
+
+  it("3 つの数値項目を一括設定できる", () => {
+    const out = userProfileInputSchema.safeParse({
+      birth_year: 1990,
+      height_cm: 160,
+      target_weight_kg: 55,
+    });
+    expect(out.success).toBe(true);
+    if (out.success) {
+      expect(out.data.birth_year).toBe(1990);
+      expect(out.data.height_cm).toBe(160);
+      expect(out.data.target_weight_kg).toBe(55);
+    }
+  });
 });
