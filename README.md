@@ -138,10 +138,52 @@ pnpm dev
 設計書 §11 参照。
 
 - **Phase 0**: 基盤整備（本 README の手順）← ✅ 構築完了
-- **Phase 1**: レシート → 食材抽出 → レシピ提案
+- **Phase 1**: レシート → 食材抽出 → レシピ提案 ← ✅ 構築完了
 - **Phase 2**: 栄養アドバイザー
 - **Phase 3**: 体重 / 運動 / 食事ログ
 - 将来拡張: 月次レポート、食材在庫、楽天レシピ API 併用 等
+
+## Phase 1 機能まとめ
+
+完成済みの主要機能:
+
+- 買物登録（手入力 + レシート画像 OCR）
+- 買物履歴 + 月別合計サマリー
+- 買物履歴の CSV エクスポート（Excel / Numbers で開ける UTF-8 BOM 付き）
+- AI レシピ提案（食材 + ジャンル + プロフィール反映）
+- レシピ詳細表示
+- お気に入りレシピ保存
+- ユーザープロフィール簡易編集（アレルギー / 苦手 / 目標）
+
+### Phase 1 の実機動作確認
+
+```bash
+# 1. ローカル Edge Function サーバ起動（OCR / レシピ提案）
+cd /Volumes/990PRO_SSD/personal/OkazuLink
+supabase functions serve --env-file ./supabase/functions/.env
+
+# 2. Next.js dev サーバ起動
+cd web && pnpm dev
+```
+
+主要シナリオ:
+
+1. ログイン → ダッシュボード
+2. 買物 → 新規登録 → レシート撮影 → 食材抽出 → 編集 → 登録
+3. レシピ → 食材選択 + ジャンル → 提案 → 詳細 → ❤️ お気に入り
+4. 設定 → プロフィール（アレルギー等）入力 → 再びレシピ提案で反映確認
+5. 買物 → CSV ダウンロードで Excel に開く
+
+### Playwright スモークテスト
+
+認証フロー本体は Google OAuth のため E2E カバー外。`web/e2e/smoke.spec.ts`
+で認証ガードと /login の表示のみを確認する最低限のスイートを用意:
+
+```bash
+cd web
+pnpm dev          # 別ターミナルで起動しておく
+pnpm test:e2e     # Playwright を実行
+```
 
 ## ライセンス
 
