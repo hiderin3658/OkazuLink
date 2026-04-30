@@ -13,3 +13,6 @@ playwright-report/
 test-results/
 next-env.d.ts
 *.tsbuildinfo
+
+# 模擬レシート生成物（pnpm gen:receipts で再生成可能）
+scripts/mock-receipts/output/
