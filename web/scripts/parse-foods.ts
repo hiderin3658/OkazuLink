@@ -175,7 +175,7 @@ export function generateDictAliases(foodName: string): string[] {
  *    1. 前置詞剥がし後の文字列（"ほうれんそう 葉 通年平均 生"）を 1 つの別名として登録
  *    2. その先頭ワード（"ほうれんそう"）を別名として登録
  *    3. 肉類複合語パターンから鶏もも・豚バラ等を生成
- *    4. COMMON_NAMES 辞書ヒットによる別表記を追加
+ *    4. NAME_VARIANTS 辞書ヒットによる別表記を追加
  *
  *  生成された別名は normalize() を経て foods.aliases にそのまま保存される。
  *  matcher 側の正規化（NFKC + ひら→カナ + 空白除去）と一致するため
