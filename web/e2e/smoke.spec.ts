@@ -50,10 +50,10 @@ test.describe("API ルート 認証", () => {
     expect(res.status()).toBe(401);
   });
 
-  test("/api/nutrition/export は不正な month で 400", async ({ request }) => {
+  test("/api/nutrition/export は不正な month でも未認証なら 401（認証優先）", async ({ request }) => {
     const res = await request.get("/api/nutrition/export?month=invalid");
-    // 認証チェック前に month バリデーションが走る設計
-    expect(res.status()).toBe(400);
+    // 認証チェックを最優先することで認証状態を漏らさない設計
+    expect(res.status()).toBe(401);
   });
 });
 

@@ -135,6 +135,27 @@ describe("buildNutritionCsv", () => {
     expect(saltLine).toContain("過剰");
   });
 
+  it("達成率 100% ちょうどは非上限側で「適正」、上限側は「上限近い」", () => {
+    // タンパク質 1500g vs 推奨 50×30=1500g → 100% ちょうど → 「適正」（>=70 かつ <=150）
+    const exact: NutritionSummary = {
+      ...sampleSummary,
+      totals: {
+        ...sampleSummary.totals,
+        protein_g: 1500,
+        salt_g: 195, // 100% 上限ぎりぎり
+      },
+    };
+    const csv = buildNutritionCsv({
+      monthStart: "2026-04-01",
+      birthYear: 1990,
+      summary: exact,
+    });
+    const proteinLine = csv.split("\r\n").find((l) => l.startsWith("2026年4月,タンパク質"));
+    const saltLine = csv.split("\r\n").find((l) => l.startsWith("2026年4月,食塩"));
+    expect(proteinLine).toContain("適正");
+    expect(saltLine).toContain("上限近い");
+  });
+
   it("notes は最終行に「計算前提」として追加", () => {
     const csv = buildNutritionCsv({
       monthStart: "2026-04-01",

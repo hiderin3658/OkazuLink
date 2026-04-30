@@ -25,18 +25,20 @@ function parseMonthStart(input: string | null): string | null {
 }
 
 export async function GET(request: Request) {
-  const url = new URL(request.url);
-  const monthStart = parseMonthStart(url.searchParams.get("month"));
-  if (!monthStart) {
-    return new Response("Invalid month parameter (YYYY-MM-01)", { status: 400 });
-  }
-
+  // 認証は最優先で行う。未認証ユーザーには 401 のみを返し、URL パラメータの
+  // バリデーションエラーで認証状態を漏らさない（情報漏えい対策）
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
     return new Response("Unauthorized", { status: 401 });
+  }
+
+  const url = new URL(request.url);
+  const monthStart = parseMonthStart(url.searchParams.get("month"));
+  if (!monthStart) {
+    return new Response("Invalid month parameter (YYYY-MM-01)", { status: 400 });
   }
 
   const { data, error } = await supabase
