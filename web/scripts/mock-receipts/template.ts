@@ -72,9 +72,20 @@ function buildItemsHtml(items: MockReceiptItem[]): string {
 }
 
 /** 1 件のレシート分の完結した HTML 文書を返す。
- *  Playwright で `setContent` → `pdf()` / `screenshot()` する。 */
+ *  Playwright で `setContent` → `pdf()` / `screenshot()` する。
+ *
+ *  「小計」は明細の値引「前」合計を表示する（一般的なレシートのレイアウト）。
+ *  明細値引行は項目ごとに `-¥XX` として表示済みなので、合計欄でも値引が
+ *  反映された MockReceipt.total を表示することで筋が通る。 */
 export function buildReceiptHtml(r: MockReceipt): string {
-  const itemsTotal = r.items.reduce((acc, it) => acc + calcSubtotal(it), 0);
+  const itemsTotal = r.items.reduce(
+    (acc, it) =>
+      acc +
+      (typeof it.subtotal === "number"
+        ? it.subtotal
+        : it.unitPrice * (it.quantity ?? 1)),
+    0,
+  );
   const couponLine =
     typeof r.coupon === "number" && r.coupon > 0
       ? `<div class="row sub">
@@ -87,8 +98,8 @@ export function buildReceiptHtml(r: MockReceipt): string {
     // store 文字数から簡易擬似電話番号（毎回同じになる決定論性確保）
     let h = 0;
     for (const c of r.store) h = ((h << 5) - h + c.charCodeAt(0)) | 0;
-    const n = String(Math.abs(h) % 9000 + 1000);
-    return `03-${n.slice(0, 4)}-${("0000" + (Math.abs(h) % 10000)).slice(-4)}`;
+    const n = String((Math.abs(h) % 9000) + 1000); // 1000-9999 で常に 4 桁
+    return `03-${n}-${("0000" + (Math.abs(h) % 10000)).slice(-4)}`;
   })();
   return `<!doctype html>
 <html lang="ja">
@@ -128,7 +139,9 @@ export function buildReceiptHtml(r: MockReceipt): string {
     align-items: baseline;
     font-size: 11pt;
   }
-  .row .name { white-space: pre-wrap; word-break: break-all; }
+  /* 日本語向けに word-break: break-all は不自然な改行になるため、長い英数字や
+     URL のみで改行が許容される overflow-wrap: anywhere を採用 */
+  .row .name { white-space: pre-wrap; overflow-wrap: anywhere; }
   .row.sub { font-size: 9pt; color: #444; }
   .row .amount { font-variant-numeric: tabular-nums; }
   .total { font-size: 13pt; font-weight: bold; margin-top: 1mm; }

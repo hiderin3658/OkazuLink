@@ -15,6 +15,7 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { MOCK_RECEIPTS, type MockReceipt } from "./data";
+import { assertSafeSlug } from "./safe-slug";
 import { buildReceiptHtml } from "./template";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -54,8 +55,12 @@ async function ensureOutputDir(clean: boolean): Promise<void> {
   if (clean) {
     try {
       await rm(OUTPUT_DIR, { recursive: true, force: true });
-    } catch {
-      /* ignore */
+    } catch (err) {
+      // force: true でも race condition で稀に失敗するため、警告ログのみ残す
+      console.warn(
+        `[mock-receipts] failed to clean output dir, continuing:`,
+        (err as Error).message,
+      );
     }
   }
   await mkdir(OUTPUT_DIR, { recursive: true });
@@ -66,6 +71,8 @@ async function renderReceipt(
   receipt: MockReceipt,
   format: Format,
 ): Promise<void> {
+  // ファイルパス組み立て前に slug を検証（パストラバーサル対策）
+  assertSafeSlug(receipt.slug);
   const page = await browser.newPage({
     viewport: { width: 320, height: 800 }, // 80mm 幅 ≒ 320px @ 96dpi で近似
   });
