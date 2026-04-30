@@ -47,15 +47,39 @@ async function main() {
   });
 
   // 1. foods 一覧をロードして index 化
-  const { data: foods, error: foodsErr } = await supabase
-    .from("foods")
-    .select("id, name, aliases");
-  if (foodsErr) {
-    console.error("Failed to load foods:", foodsErr);
+  //    Supabase は単発 select で最大 1000 行までしか返さないため、range で
+  //    ページネーションして 2,000 件超ある食品マスタを全件読み込む。
+  //    code 昇順で取り、buildFoodIndex の "first wins" により若い foodId
+  //    （通常 "生" 状態）が優先されるようにする。
+  //    MAX_PAGES は無限ループ保護: foods は 2,478 件規模を想定し、PAGE_SIZE=1000
+  //    なら 3 反復で完了。PostgREST 異常で同データが返り続けても 10 反復で打ち切る。
+  const PAGE_SIZE = 1000;
+  const MAX_PAGES = 10;
+  const foodsAll: FoodEntry[] = [];
+  let from = 0;
+  let page = 0;
+  while (page < MAX_PAGES) {
+    const { data, error } = await supabase
+      .from("foods")
+      .select("id, name, aliases")
+      .order("code", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      console.error("Failed to load foods:", error);
+      process.exit(1);
+    }
+    if (!data || data.length === 0) break;
+    foodsAll.push(...(data as FoodEntry[]));
+    if (data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+    page++;
+  }
+  if (page >= MAX_PAGES) {
+    console.error(`Hit MAX_PAGES=${MAX_PAGES} during foods load, aborting.`);
     process.exit(1);
   }
-  const index = buildFoodIndex((foods ?? []) as FoodEntry[]);
-  console.log(`✓ Loaded ${foods?.length ?? 0} foods`);
+  const index = buildFoodIndex(foodsAll);
+  console.log(`✓ Loaded ${foodsAll.length} foods`);
 
   // 2. food_id が null の shopping_items を全件取得
   const { data: items, error: itemsErr } = await supabase
