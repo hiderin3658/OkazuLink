@@ -74,13 +74,25 @@ export default async function NutritionPage({
             月別の食生活の偏りを把握できます。買物に紐づく食材から自動集計しています。
           </p>
         </div>
-        <a
-          href={`/nutrition/advice?month=${monthStart}`}
-          title="同月の再アクセスは前回結果を再利用するため API コストはかかりません"
-          className="inline-flex items-center gap-1 rounded-md bg-[var(--color-primary)] px-3 py-2 text-sm font-medium text-[var(--color-primary-foreground)]"
-        >
-          ✨ AI アドバイス
-        </a>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {summary && (
+            <a
+              href={`/api/nutrition/export?month=${monthStart}`}
+              download
+              aria-label="栄養サマリーを CSV でダウンロード"
+              className="inline-flex items-center gap-1 rounded-md border border-[var(--color-border)] bg-white px-3 py-2 text-sm hover:bg-[var(--color-muted)]"
+            >
+              CSV
+            </a>
+          )}
+          <a
+            href={`/nutrition/advice?month=${monthStart}`}
+            title="同月の再アクセスは前回結果を再利用するため API コストはかかりません"
+            className="inline-flex items-center gap-1 rounded-md bg-[var(--color-primary)] px-3 py-2 text-sm font-medium text-[var(--color-primary-foreground)]"
+          >
+            ✨ AI アドバイス
+          </a>
+        </div>
       </header>
 
       <MonthSelector selected={monthStart} />

@@ -3,7 +3,7 @@
 > 一人暮らし女性向け「買い物 → 料理 → 栄養 → 健康管理」を一気通貫でサポートするパーソナル食生活アドバイザー Web アプリ。
 
 - 作成日: 2026-04-21
-- バージョン: 0.5
+- バージョン: 0.6
 - 対象: MVP 〜 将来拡張までの全体像
 
 ### 変更履歴
@@ -27,6 +27,16 @@
   - Edge Function `extract-receipt` / `suggest-recipes`（Gemini 3 Flash + Pro フォールバック、JSON Schema バリデーション、ai_advice_logs 記録、月次予算チェック）
   - プロフィール簡易編集（アレルギー / 苦手 / 目標）を suggest-recipes へ反映
   - 全 8 PR (PR-A 〜 PR-H) で段階的にリリース、独立コードレビューを各 PR に実施
+- v0.6（2026-04-30）: Phase 2 の実装結果を反映
+  - foods マッチング基盤（normalize + buildFoodIndex + バックフィルスクリプト）
+  - 月次栄養集計（純粋関数 aggregateMonthly + nutrition_monthly_summaries の 24h キャッシュ）
+  - 栄養レポート画面 S-07（PFC バー + 達成率テーブル + 推奨摂取量[厚労省 2020年版・女性] 反映）
+  - Edge Function `advise-nutrition`（Gemini 3 Pro、`ai_advice_logs.input_hash` キャッシュ）
+  - アドバイザー画面 S-08（コーチコメント + 不足栄養素 + 買い足し提案）
+  - プロフィール拡充（生年・身長・目標体重 → 年齢区分判定）
+  - 月次栄養 CSV エクスポート（達成率 + 判定 + 計算前提付き）
+  - ai_advice_logs.request_payload->input_hash 用 partial index 追加
+  - 全 7 PR (PR2-A 〜 PR2-G) で段階的にリリース、独立コードレビューを各 PR に実施
 
 ---
 
