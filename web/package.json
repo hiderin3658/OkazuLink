@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "seed:foods": "tsx scripts/seed-foods.ts",
-    "backfill:food-ids": "tsx scripts/backfill-food-ids.ts"
+    "backfill:food-ids": "tsx scripts/backfill-food-ids.ts",
+    "gen:receipts": "tsx scripts/mock-receipts/generate.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
