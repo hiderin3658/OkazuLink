@@ -24,6 +24,37 @@ test.describe("認証ガード", () => {
     await page.goto("/shopping");
     await expect(page).toHaveURL(/\/login(\?.*)?$/);
   });
+
+  // Phase 2 で追加された画面も同様にガードされていることを確認
+  test("/nutrition は未認証時に /login へリダイレクト", async ({ page }) => {
+    await page.goto("/nutrition");
+    await expect(page).toHaveURL(/\/login(\?.*)?$/);
+  });
+
+  test("/nutrition/advice は未認証時に /login へリダイレクト", async ({ page }) => {
+    await page.goto("/nutrition/advice");
+    await expect(page).toHaveURL(/\/login(\?.*)?$/);
+  });
+});
+
+test.describe("API ルート 認証", () => {
+  test("/api/shopping/export は未認証で 401", async ({ request }) => {
+    const res = await request.get("/api/shopping/export");
+    expect(res.status()).toBe(401);
+  });
+
+  test("/api/nutrition/export は未認証で 401", async ({ request }) => {
+    const res = await request.get(
+      "/api/nutrition/export?month=2026-04-01",
+    );
+    expect(res.status()).toBe(401);
+  });
+
+  test("/api/nutrition/export は不正な month でも未認証なら 401（認証優先）", async ({ request }) => {
+    const res = await request.get("/api/nutrition/export?month=invalid");
+    // 認証チェックを最優先することで認証状態を漏らさない設計
+    expect(res.status()).toBe(401);
+  });
 });
 
 test.describe("/login 画面", () => {

@@ -139,9 +139,39 @@ pnpm dev
 
 - **Phase 0**: 基盤整備（本 README の手順）← ✅ 構築完了
 - **Phase 1**: レシート → 食材抽出 → レシピ提案 ← ✅ 構築完了
-- **Phase 2**: 栄養アドバイザー
+- **Phase 2**: 栄養アドバイザー ← ✅ 構築完了
 - **Phase 3**: 体重 / 運動 / 食事ログ
 - 将来拡張: 月次レポート、食材在庫、楽天レシピ API 併用 等
+
+## Phase 2 機能まとめ
+
+完成済みの主要機能:
+
+- foods マッチング基盤（shopping_items.food_id バックフィル + 自動付与）
+- 月次栄養集計（PFC + 食物繊維 + 主要ビタミン・ミネラル 計 20 種）
+- 栄養レポート画面 S-07（PFC スタックバー + 推奨摂取量比達成率テーブル）
+- AI 栄養アドバイス S-08（Gemini 3 Pro、コーチコメント + 不足栄養素 + 買い足し提案、`ai_advice_logs` キャッシュ）
+- プロフィール拡充（生年・身長・目標体重 → 年齢区分判定）
+- 月次栄養 CSV エクスポート（推奨摂取量・達成率・判定付き）
+
+### Phase 2 の実機動作確認
+
+```bash
+# Phase 1 と同じく Edge Function + dev を起動
+supabase functions serve --env-file ./supabase/functions/.env
+cd web && pnpm dev
+```
+
+主要シナリオ:
+
+1. /settings で生年・身長などのプロフィールを保存
+2. 既存の買物データがある月を /nutrition で開く
+3. 自動集計 → PFC バーと達成率テーブルが表示
+4. 「✨ AI アドバイス」 → コーチコメント + 不足栄養素 + 買い足し提案
+5. /nutrition の「CSV」ボタンでサマリーをダウンロードして Excel で開く
+6. プロフィールを変更（年齢を 50 歳超に） → 推奨摂取量と達成率が自動再計算
+
+新規ユーザーは事前に `pnpm backfill:food-ids` で過去の shopping_items を foods マスタに紐付けておくと、栄養計算の網羅性が上がります。
 
 ## Phase 1 機能まとめ
 
