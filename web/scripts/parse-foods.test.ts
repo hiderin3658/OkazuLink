@@ -2,6 +2,9 @@
 import { describe, expect, it } from "vitest";
 import {
   extractNutrition,
+  generateAliases,
+  generateDictAliases,
+  generateMeatAliases,
   normalizeName,
   normalizeNutritionValue,
   parseFoodSource,
@@ -199,5 +202,102 @@ describe("parseFoodSource", () => {
     expect(out).toHaveLength(3);
     expect(out.map((x) => x.code)).toEqual(["01001", "11001", "18052"]);
     expect(out.map((x) => x.name)).toEqual(["a", "b", "c"]);
+  });
+
+  it("aliases フィールドが ParsedFood に含まれる", () => {
+    const out = parseFoodSource([sampleRow]);
+    expect(Array.isArray(out[0]!.aliases)).toBe(true);
+  });
+});
+
+// =====================================================================
+// generateAliases / generateMeatAliases / generateDictAliases
+// =====================================================================
+
+describe("generateMeatAliases", () => {
+  it("鶏もも 皮つき 生 → 鶏もも・とりもも・若鶏もも を生成", () => {
+    const aliases = generateMeatAliases(
+      "<鳥肉類> にわとり [若どり･主品目] もも 皮つき 生",
+    );
+    expect(aliases).toContain("鶏もも");
+    expect(aliases).toContain("とりもも");
+    expect(aliases).toContain("若鶏もも");
+  });
+
+  it("豚 ばら 脂身つき 生 → 豚ばら・ぶたばら を生成", () => {
+    const aliases = generateMeatAliases(
+      "<畜肉類> ぶた [大型種肉] ばら 脂身つき 生",
+    );
+    expect(aliases).toContain("豚ばら");
+    expect(aliases).toContain("ぶたばら");
+  });
+
+  it("牛 もも 脂身つき 生 → 牛もも・うしもも を生成", () => {
+    const aliases = generateMeatAliases("<畜肉類> うし [和牛肉] もも 脂身つき 生");
+    expect(aliases).toContain("牛もも");
+    expect(aliases).toContain("うしもも");
+  });
+
+  it("肉以外の食品名では空配列", () => {
+    expect(generateMeatAliases("(たまねぎ類) たまねぎ りん茎 生")).toEqual([]);
+    expect(generateMeatAliases("ほうれんそう 葉 通年平均 生")).toEqual([]);
+  });
+
+  it("分類タグがあるが部位フォーマットでないものは無視される", () => {
+    expect(generateMeatAliases("<畜肉類> いのしし 肉 脂身つき 生")).toEqual([]);
+  });
+});
+
+describe("generateDictAliases", () => {
+  it("foodName 内のひらがな読みから漢字別表記を引く", () => {
+    expect(generateDictAliases("(たまねぎ類) たまねぎ りん茎 生")).toContain("玉ねぎ");
+    expect(generateDictAliases("ほうれんそう 葉 通年平均 生")).toContain("ほうれん草");
+    expect(generateDictAliases("にわとり [若どり] もも 皮つき 生")).toContain("鶏");
+  });
+
+  it("辞書に該当しない食品名では空配列", () => {
+    expect(generateDictAliases("アマランサス 玄穀")).toEqual([]);
+  });
+});
+
+describe("generateAliases", () => {
+  it("(たまねぎ類) たまねぎ → strip + 先頭ワード + 玉ねぎ", () => {
+    const aliases = generateAliases("(たまねぎ類) たまねぎ りん茎 生");
+    // strip 後の文字列
+    expect(aliases).toContain("たまねぎ りん茎 生");
+    // 先頭ワード
+    expect(aliases).toContain("たまねぎ");
+    // 辞書からの漢字別表記
+    expect(aliases).toContain("玉ねぎ");
+    expect(aliases).toContain("玉葱");
+  });
+
+  it("ほうれんそう 葉 通年平均 生 → ほうれん草 を含む", () => {
+    const aliases = generateAliases("ほうれんそう 葉 通年平均 生");
+    expect(aliases).toContain("ほうれんそう");
+    expect(aliases).toContain("ほうれん草");
+  });
+
+  it("<鳥肉類> にわとり もも 皮つき 生 → 鶏もも を含む", () => {
+    const aliases = generateAliases(
+      "<鳥肉類> にわとり [若どり･主品目] もも 皮つき 生",
+    );
+    expect(aliases).toContain("鶏もも");
+    expect(aliases).toContain("とりもも");
+    // にわとり の辞書ヒット
+    expect(aliases).toContain("鶏");
+    expect(aliases).toContain("鶏肉");
+  });
+
+  it("自分自身は aliases に含めない", () => {
+    const name = "アマランサス 玄穀";
+    const aliases = generateAliases(name);
+    expect(aliases).not.toContain(name);
+  });
+
+  it("重複は除去される（Set 経由）", () => {
+    const aliases = generateAliases("(たまねぎ類) たまねぎ りん茎 生");
+    const unique = Array.from(new Set(aliases));
+    expect(aliases.length).toBe(unique.length);
   });
 });

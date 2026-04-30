@@ -5,6 +5,7 @@
 import {
   FOOD_SOURCE_TEXT,
   GROUP_SPECS,
+  NAME_VARIANTS,
   NUTRITION_KEY_MAP,
   type FoodCategory,
   type ParsedFood,
@@ -62,6 +63,143 @@ export function normalizeName(name: string): string {
 }
 
 // =====================================================================
+// 別名（aliases）生成
+// =====================================================================
+
+/** 食品成分表の食品名から、外側の () <> [] による分類前置詞を再帰的に剥がす。
+ *  例: "<畜肉類> ぶた [大型種肉] かた" → "ぶた [大型種肉] かた" */
+function stripPrefix(s: string): string {
+  let prev: string;
+  let cur = s;
+  do {
+    prev = cur;
+    cur = cur.replace(/^\s*[(<\[][^)>\]]+[)>\]]\s*/, "");
+  } while (cur !== prev);
+  return cur.trim();
+}
+
+/** ひらがな (U+3041〜U+3096) を対応するカタカナ (U+30A1〜U+30F6) に変換 */
+function hiraToKata(s: string): string {
+  return s.replace(/[ぁ-ゖ]/g, (c) =>
+    String.fromCharCode(c.charCodeAt(0) + 0x60),
+  );
+}
+
+/** 肉類・鳥肉類の複合語別名を生成する。
+ *
+ *  食品成分表は「<鳥肉類> にわとり [若どり･主品目] もも 皮つき 生」のような
+ *  分類フォーマットだが、ユーザーは「鶏もも」「とりもも」のような複合語で入力する。
+ *  この差を埋めるため、第二角括弧 [...] の直後の部位名を抽出し
+ *  鶏 / とり / 豚 / ぶた / 牛 / うし などと結合した別名を生成する。 */
+export function generateMeatAliases(foodName: string): string[] {
+  const aliases: string[] = [];
+
+  // パターン: "<鳥肉類>" を含み、にわとり [...] PART で部位を抽出
+  if (foodName.includes("<鳥肉類>") && foodName.includes("にわとり")) {
+    const m = /にわとり\s*\[[^\]]+\]\s*(\S+)/.exec(foodName);
+    if (m && m[1]) {
+      const part = m[1];
+      aliases.push(`鶏${part}`, `とり${part}`, `若鶏${part}`);
+      const kata = hiraToKata(part);
+      if (kata !== part) {
+        aliases.push(`鶏${kata}`, `とり${kata}`);
+      }
+    }
+  }
+
+  // パターン: "<畜肉類>" + ぶた [...] PART
+  if (foodName.includes("<畜肉類>") && foodName.includes("ぶた")) {
+    const m = /ぶた\s*\[[^\]]+\]\s*(\S+)/.exec(foodName);
+    if (m && m[1]) {
+      const part = m[1];
+      aliases.push(`豚${part}`, `ぶた${part}`);
+      const kata = hiraToKata(part);
+      if (kata !== part) {
+        aliases.push(`豚${kata}`);
+      }
+    }
+  }
+
+  // パターン: "<畜肉類>" + うし [...] PART
+  if (foodName.includes("<畜肉類>") && foodName.includes("うし")) {
+    const m = /うし\s*\[[^\]]+\]\s*(\S+)/.exec(foodName);
+    if (m && m[1]) {
+      const part = m[1];
+      aliases.push(`牛${part}`, `うし${part}`);
+      const kata = hiraToKata(part);
+      if (kata !== part) {
+        aliases.push(`牛${kata}`);
+      }
+    }
+  }
+
+  return aliases;
+}
+
+/** NAME_VARIANTS 辞書を「単語完全一致」で引く。
+ *
+ *  foodName を区切り文字（空白・括弧・中点・記号）で分割し、各単語がいずれかの
+ *  同義語グループに完全一致すればそのグループの他の表記を別名として返す。
+ *  部分文字列ではなく単語マッチにすることで "たまねぎ" → "ねぎ" のような
+ *  誤検知を防ぐ。
+ *
+ *  分割例: "だいず [豆腐･油揚げ類] 木綿豆腐"
+ *  → ["だいず", "豆腐", "油揚げ類", "木綿豆腐"]
+ *  これにより "豆腐" 単語が抽出され「豆腐」グループにヒットして "とうふ" が追加される。 */
+const WORD_SEPARATOR = /[\s\[\]()<>･・、。,]+/;
+
+export function generateDictAliases(foodName: string): string[] {
+  const aliases: string[] = [];
+  const words = foodName.split(WORD_SEPARATOR).filter((w) => w.length > 0);
+  for (const word of words) {
+    for (const group of NAME_VARIANTS) {
+      if (group.includes(word)) {
+        // word 自身も別名に含める（food.name 全体とは別物のため）
+        for (const v of group) aliases.push(v);
+      }
+    }
+  }
+  return aliases;
+}
+
+/** 食品名から DB に保存する aliases 配列を生成する。
+ *
+ *  生成戦略:
+ *    1. 前置詞剥がし後の文字列（"ほうれんそう 葉 通年平均 生"）を 1 つの別名として登録
+ *    2. その先頭ワード（"ほうれんそう"）を別名として登録
+ *    3. 肉類複合語パターンから鶏もも・豚バラ等を生成
+ *    4. COMMON_NAMES 辞書ヒットによる別表記を追加
+ *
+ *  生成された別名は normalize() を経て foods.aliases にそのまま保存される。
+ *  matcher 側の正規化（NFKC + ひら→カナ + 空白除去）と一致するため
+ *  追加の前処理は不要。 */
+export function generateAliases(foodName: string): string[] {
+  const aliases = new Set<string>();
+
+  const stripped = stripPrefix(foodName);
+  if (stripped && stripped !== foodName) {
+    aliases.add(stripped);
+  }
+
+  // 先頭ワード（食品成分表の分類後の主要名）
+  const firstWord = stripped.split(/\s+/)[0];
+  if (firstWord && firstWord.length > 0) {
+    aliases.add(firstWord);
+  }
+
+  // 肉類複合語
+  for (const a of generateMeatAliases(foodName)) aliases.add(a);
+
+  // 一般名辞書
+  for (const a of generateDictAliases(foodName)) aliases.add(a);
+
+  // 食品名そのものは name 列で索引されるので aliases からは除く
+  aliases.delete(foodName);
+
+  return Array.from(aliases);
+}
+
+// =====================================================================
 // メイン関数
 // =====================================================================
 
@@ -74,9 +212,11 @@ export function normalizeName(name: string): string {
 export function parseFoodSource(rows: RawFoodRow[]): ParsedFood[] {
   return rows.map((row) => {
     const { food_group, category } = resolveGroup(row.groupId);
+    const name = normalizeName(row.foodName);
     return {
       code: formatCode(row.foodId),
-      name: normalizeName(row.foodName),
+      name,
+      aliases: generateAliases(name),
       category,
       food_group,
       nutrition_per_100g: extractNutrition(row),
