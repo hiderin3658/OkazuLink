@@ -32,11 +32,18 @@ export async function updateMyProfile(
     return { ok: false, message: "認証が必要です。再度ログインしてください。" };
   }
 
-  const { display_name, goal_type, allergies, disliked_foods } = parsed.data;
-  // Note: Supabase の upsert は ON CONFLICT DO UPDATE 時に提供されたキーのみを
-  // SET する仕様のため、本関数で送らない birth_year / height_cm /
-  // target_weight_kg 等は既存値が維持される。Phase 2 でそれらの編集 UI を
-  // 追加する際は、本関数とは別の Action で個別に更新する設計を推奨。
+  const {
+    display_name,
+    goal_type,
+    allergies,
+    disliked_foods,
+    birth_year,
+    height_cm,
+    target_weight_kg,
+  } = parsed.data;
+  // Phase 2 で birth_year / height_cm / target_weight_kg を追加。
+  // Supabase の upsert は ON CONFLICT DO UPDATE 時に提供されたキーのみ SET するため、
+  // 将来追加されるフィールド（例: 体組成計連携）は別 Action で扱う設計とする。
   const { error } = await supabase
     .from("user_profiles")
     .upsert(
@@ -46,6 +53,9 @@ export async function updateMyProfile(
         goal_type,
         allergies,
         disliked_foods,
+        birth_year,
+        height_cm,
+        target_weight_kg,
       },
       { onConflict: "user_id" },
     );
@@ -59,5 +69,7 @@ export async function updateMyProfile(
 
   revalidatePath("/settings");
   revalidatePath("/recipes");
+  // 推奨摂取量計算は profile.birth_year に依存するため /nutrition も再検証
+  revalidatePath("/nutrition");
   return { ok: true };
 }
