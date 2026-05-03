@@ -4,7 +4,8 @@
 // 戦略:
 //   1. 完全一致 (foods.name または foods.aliases に含まれる)
 //   2. 正規化（NFKC + ひら→カナ + lowercase + 空白除去）後の一致
-//   3. それでもマッチしなければ null（AI 補助は別 PR/将来）
+//   3. 末尾の数量・サイズサフィックス（"2本" "2L" 等）を剥がして再試行
+//   4. それでもマッチしなければ null（AI 補助は別 PR/将来）
 
 export interface FoodEntry {
   id: string;
@@ -53,11 +54,39 @@ function addToIndex(map: Map<string, string>, key: string, id: string): void {
   }
 }
 
+/** 末尾の数量・サイズサフィックスを剥がす。
+ *  正規化済み（小文字化・空白除去後）の文字列に対して適用する想定。
+ *
+ *  例: "玉ねぎ2l" → "玉ねぎ"  （サイズ "2L" 剥がし）
+ *      "炭酸水2本" → "炭酸水" （数量 "2本" 剥がし）
+ *      "りんご3個" → "りんご"
+ *      "牛乳1l"  → "牛乳"   （容量 "1L" 剥がし）
+ *
+ *  剥がしすぎを防ぐため、「数字 + 単位」または「サイズ表記単独」のみを対象とする。
+ *  曖昧なパターン（例: 末尾 "g" 単独）は誤剥がしの恐れがあるため対象外。 */
+export function stripTrailingQuantity(s: string): string {
+  if (!s) return s;
+  // 数字 + 単位（個・本・パック・玉・袋・枚・束・尾・杯・缶・片・房・株・切れ・本入り）
+  // 並び順注意: 正規表現の交替は左から評価されるため、長いトークン（"本入り"）を
+  // 短いトークン（"本"）より先に置かないと最長マッチにならない。新規追加時も同様に注意。
+  const QTY_UNIT = /\d+(?:本入り|本|個|玉|パック|袋|枚|束|尾|杯|缶|片|房|株|切れ)$/;
+  let result = s;
+  // 1 段階目: 数量+単位
+  const m1 = QTY_UNIT.exec(result);
+  if (m1) result = result.slice(0, m1.index);
+  // 2 段階目: サイズ表記（数字 + l/m/s）
+  // 単独 "l" / "m" / "s" は "アボカドl" 等の誤剥がしリスクが高いため対象外。
+  const m2 = /\d+[lms]$/.exec(result);
+  if (m2) result = result.slice(0, m2.index);
+  return result || s; // 全部剥がれた場合は元を返す
+}
+
 /** 食材名（raw_name / display_name）から food_id を引く。
  *
  *  優先順:
  *    1. display_name の正規化一致（display_name はユーザーが整えた表記）
  *    2. raw_name の正規化一致（OCR 由来の生の表記）
+ *    3. 上記いずれかから末尾の数量・サイズを剥がした variant でも試す
  *
  *  どちらもヒットしなければ null。 */
 export function matchFood(
@@ -69,10 +98,21 @@ export function matchFood(
   if (displayName && displayName.trim().length > 0) candidates.push(displayName);
   if (rawName && rawName.trim().length > 0) candidates.push(rawName);
 
-  for (const c of candidates) {
-    const norm = normalize(c);
+  // candidate ごとに normalize を 1 回だけ計算してキャッシュする
+  // （3 段階の判定で同じ値を使い回すため）
+  const normalized = candidates.map((c) => normalize(c));
+
+  // 1〜2: 完全一致 / 正規化一致
+  for (const norm of normalized) {
     if (norm && index.has(norm)) {
       return index.get(norm) ?? null;
+    }
+  }
+  // 3: 末尾サフィックスを剥がした variant でも試す
+  for (const norm of normalized) {
+    const stripped = stripTrailingQuantity(norm);
+    if (stripped && stripped !== norm && index.has(stripped)) {
+      return index.get(stripped) ?? null;
     }
   }
   return null;

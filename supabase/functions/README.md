@@ -188,11 +188,12 @@ cuisine の許容値: `japanese | chinese | italian | french | ethnic | korean |
 ```bash
 # プロジェクトに紐付け済みの状態で
 supabase secrets set GEMINI_API_KEY=AIzaSy...
-supabase secrets set MODEL_OCR=gemini-3-flash
-supabase secrets set MODEL_OCR_FALLBACK=gemini-3-pro
-supabase secrets set MODEL_RECIPE=gemini-3-flash
-supabase secrets set MODEL_ADVICE=gemini-3-pro
-supabase secrets set MODEL_REPORT=gemini-3.1-flash-lite
+supabase secrets set MODEL_OCR=gemini-2.5-flash
+# 注: gemini-2.5-pro は free tier 不可。billing 未登録なら flash 系に揃える
+supabase secrets set MODEL_OCR_FALLBACK=gemini-2.5-pro
+supabase secrets set MODEL_RECIPE=gemini-2.5-flash
+supabase secrets set MODEL_ADVICE=gemini-2.5-pro
+supabase secrets set MODEL_REPORT=gemini-2.5-flash-lite
 supabase secrets set MONTHLY_AI_BUDGET_JPY=1000
 supabase secrets set AI_BUDGET_MODE=soft
 supabase secrets set USD_JPY_RATE=150
@@ -277,11 +278,11 @@ PR-C 以降では実画像・実プロンプトでの E2E 確認を行う。
 | `SUPABASE_ANON_KEY` | anon JWT 検証用 | ✅ | `eyJ...` |
 | `SUPABASE_SERVICE_ROLE_KEY` | RLS バイパス用（ai_advice_logs 等の書込） | ✅ | `eyJ...` |
 | `GEMINI_API_KEY` | Google AI Studio API キー | ✅ | `AIzaSy...` |
-| `MODEL_OCR` | レシート OCR 用モデル | optional | `gemini-3-flash` |
-| `MODEL_OCR_FALLBACK` | OCR 失敗時のフォールバック | optional | `gemini-3-pro` |
-| `MODEL_RECIPE` | レシピ提案用モデル | optional | `gemini-3-flash` |
-| `MODEL_ADVICE` | 栄養アドバイス（Phase 2）用モデル | optional | `gemini-3-pro` |
-| `MODEL_REPORT` | 月次レポート（将来）用モデル | optional | `gemini-3.1-flash-lite` |
+| `MODEL_OCR` | レシート OCR 用モデル | optional | `gemini-2.5-flash` |
+| `MODEL_OCR_FALLBACK` | OCR 失敗時のフォールバック | optional | `gemini-2.5-pro` |
+| `MODEL_RECIPE` | レシピ提案用モデル | optional | `gemini-2.5-flash` |
+| `MODEL_ADVICE` | 栄養アドバイス（Phase 2）用モデル | optional | `gemini-2.5-flash` |
+| `MODEL_REPORT` | 月次レポート（将来）用モデル | optional | `gemini-2.5-flash-lite` |
 | `MONTHLY_AI_BUDGET_JPY` | 月次予算（円） | optional | `1000` |
 | `AI_BUDGET_MODE` | `soft`（警告のみ）/ `hard`（超過時停止） | optional | `soft` |
 | `USD_JPY_RATE` | コスト円換算用レート | optional | `150` |

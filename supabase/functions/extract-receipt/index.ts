@@ -176,8 +176,9 @@ Deno.serve(async (req: Request) => {
 
   // 6. Gemini 呼び出し（primary → fallback）
   const apiKey = mustEnv("GEMINI_API_KEY");
-  const primaryModel = getEnv("MODEL_OCR") ?? "gemini-3-flash";
-  const fallbackModel = getEnv("MODEL_OCR_FALLBACK") ?? "gemini-3-pro";
+  const primaryModel = getEnv("MODEL_OCR") ?? "gemini-2.5-flash";
+  // Pro モデルは課金登録が必要。free tier 環境では MODEL_OCR_FALLBACK=gemini-2.5-flash を設定する。
+  const fallbackModel = getEnv("MODEL_OCR_FALLBACK") ?? "gemini-2.5-pro";
 
   const prompt = buildReceiptOcrPrompt({ hint: body.hint });
 

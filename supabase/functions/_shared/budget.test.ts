@@ -6,19 +6,19 @@ import {
 } from "./budget";
 
 describe("calculateCostUsd", () => {
-  it("既知モデル: gemini-3-flash で正しく算出", () => {
-    // input 1M = 0.5 USD, output 1M = 3.0 USD
-    expect(calculateCostUsd("gemini-3-flash", 1_000_000, 0)).toBeCloseTo(0.5, 6);
-    expect(calculateCostUsd("gemini-3-flash", 0, 1_000_000)).toBeCloseTo(3.0, 6);
-    expect(calculateCostUsd("gemini-3-flash", 500_000, 100_000)).toBeCloseTo(
-      0.25 + 0.3,
+  it("既知モデル: gemini-2.5-flash で正しく算出", () => {
+    // input 1M = 0.3 USD, output 1M = 2.5 USD
+    expect(calculateCostUsd("gemini-2.5-flash", 1_000_000, 0)).toBeCloseTo(0.3, 6);
+    expect(calculateCostUsd("gemini-2.5-flash", 0, 1_000_000)).toBeCloseTo(2.5, 6);
+    expect(calculateCostUsd("gemini-2.5-flash", 500_000, 100_000)).toBeCloseTo(
+      0.15 + 0.25,
       6,
     );
   });
 
-  it("既知モデル: gemini-3-pro は単価が高い", () => {
-    expect(calculateCostUsd("gemini-3-pro", 1_000_000, 0)).toBeCloseTo(5.0, 6);
-    expect(calculateCostUsd("gemini-3-pro", 0, 1_000_000)).toBeCloseTo(15.0, 6);
+  it("既知モデル: gemini-2.5-pro は単価が高い", () => {
+    expect(calculateCostUsd("gemini-2.5-pro", 1_000_000, 0)).toBeCloseTo(1.25, 6);
+    expect(calculateCostUsd("gemini-2.5-pro", 0, 1_000_000)).toBeCloseTo(10.0, 6);
   });
 
   it("未知モデルはフォールバック単価", () => {
@@ -28,11 +28,11 @@ describe("calculateCostUsd", () => {
   });
 
   it("0 トークンなら 0 USD", () => {
-    expect(calculateCostUsd("gemini-3-flash", 0, 0)).toBe(0);
+    expect(calculateCostUsd("gemini-2.5-flash", 0, 0)).toBe(0);
   });
 
   it("小数 6 桁丸め", () => {
-    const v = calculateCostUsd("gemini-3-flash", 7, 11);
+    const v = calculateCostUsd("gemini-2.5-flash", 7, 11);
     // とても小さい値だが、6 桁までで揃うことを確認
     expect(Number.isFinite(v)).toBe(true);
     expect(String(v).split(".")[1]?.length ?? 0).toBeLessThanOrEqual(6);

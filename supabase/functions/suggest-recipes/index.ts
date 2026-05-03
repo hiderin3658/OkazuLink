@@ -230,7 +230,7 @@ Deno.serve(async (req: Request) => {
 
   // 6. Gemini 呼出
   const apiKey = mustEnv("GEMINI_API_KEY");
-  const model = getEnv("MODEL_RECIPE") ?? "gemini-3-flash";
+  const model = getEnv("MODEL_RECIPE") ?? "gemini-2.5-flash";
 
   const prompt = buildRecipeSuggestPrompt({
     ingredients,

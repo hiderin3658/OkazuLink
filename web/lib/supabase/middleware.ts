@@ -33,8 +33,15 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+  // /api/* は認証失敗時に redirect ではなく JSON 401 を返す。
+  // ページ系の redirect だと fetch がデフォルトで follow して 200 (HTML)
+  // を返してしまい、API クライアントが認証エラーを判定できなくなる。
+  const isApi = pathname.startsWith("/api/");
 
   if (!user && !isPublic) {
+    if (isApi) {
+      return jsonError(supabaseResponse, 401, "Unauthorized");
+    }
     return redirectPreservingCookies(request, "/login", null, supabaseResponse);
   }
 
@@ -49,6 +56,10 @@ export async function updateSession(request: NextRequest) {
 
     if (!allowed) {
       await supabase.auth.signOut();
+      if (isApi) {
+        // 認証は通っているがアクセス権がないため 403 Forbidden が semantic 的に正しい
+        return jsonError(supabaseResponse, 403, "Not in allowlist");
+      }
       return redirectPreservingCookies(
         request,
         "/login",
@@ -59,6 +70,26 @@ export async function updateSession(request: NextRequest) {
   }
 
   return supabaseResponse;
+}
+
+/**
+ * /api/* 向けの JSON エラーレスポンス。
+ * 未認証 (401 Unauthorized) と認可拒否 (403 Forbidden) の双方で使う。
+ * supabaseResponse の cookie（signOut 等で更新されたもの）を引き継ぐ。
+ */
+function jsonError(
+  source: NextResponse,
+  status: 401 | 403,
+  message: string,
+): NextResponse {
+  const res = new NextResponse(JSON.stringify({ error: message }), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+  source.cookies.getAll().forEach((c) => {
+    res.cookies.set(c.name, c.value, c);
+  });
+  return res;
 }
 
 /**

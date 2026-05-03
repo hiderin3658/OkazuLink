@@ -1,11 +1,13 @@
 "use client";
 
 import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { deleteShoppingRecord } from "@/lib/shopping/actions";
 
 export function DeleteShoppingButton({ id }: { id: string }) {
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
 
   function handleClick() {
     if (!confirm("この買物記録を削除しますか？（明細も同時に削除されます）")) {
@@ -14,7 +16,7 @@ export function DeleteShoppingButton({ id }: { id: string }) {
     startTransition(async () => {
       try {
         await deleteShoppingRecord(id);
-        // Server Action 内で redirect される
+        router.push("/shopping");
       } catch (err) {
         alert(`削除に失敗しました: ${(err as Error).message}`);
       }

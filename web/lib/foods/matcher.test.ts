@@ -3,6 +3,7 @@ import {
   buildFoodIndex,
   matchFood,
   normalize,
+  stripTrailingQuantity,
   type FoodEntry,
 } from "./matcher";
 
@@ -133,5 +134,49 @@ describe("matchFood", () => {
     expect(matchFood("アマランサス 玄穀", null, idx)).toBe("f4");
     // 空白除去後も一致する
     expect(matchFood("アマランサス玄穀", null, idx)).toBe("f4");
+  });
+
+  // === Phase 1+2 統合テスト 5.4 で発見: 数量サフィックス付き OCR 出力対応 ===
+
+  it("末尾の数量+単位を剥がしてマッチ（OCR 5.4 由来）", () => {
+    // 「玉ねぎ 2L」「炭酸水 2本」のような OCR 出力
+    expect(matchFood("玉ねぎ 2L", null, idx)).toBe("f3");
+    // 「3個」のような数量サフィックスも剥がす
+    expect(matchFood("玉ねぎ 3個", null, idx)).toBe("f3");
+  });
+
+  it("末尾のサイズ表記（2L/3L 等）を剥がしてマッチ", () => {
+    expect(matchFood("玉ねぎ2L", null, idx)).toBe("f3");
+    expect(matchFood("タマネギ 3L", null, idx)).toBe("f3");
+  });
+
+  it("既存マッチが壊れない（剥がしすぎない）", () => {
+    // 「アマランサス 玄穀」の末尾「玄穀」を誤剥がししない
+    expect(matchFood("アマランサス 玄穀", null, idx)).toBe("f4");
+    // 末尾が剥がし対象でなければ素通り
+    expect(matchFood("豚ロース", null, idx)).toBe("f1");
+  });
+});
+
+describe("stripTrailingQuantity", () => {
+  it("数字+単位を剥がす", () => {
+    expect(stripTrailingQuantity("炭酸水2本")).toBe("炭酸水");
+    expect(stripTrailingQuantity("りんご3個")).toBe("りんご");
+    expect(stripTrailingQuantity("みかん2袋")).toBe("みかん");
+  });
+
+  it("数字+サイズ（l/m/s）を剥がす", () => {
+    expect(stripTrailingQuantity("玉ねぎ2l")).toBe("玉ねぎ");
+    expect(stripTrailingQuantity("牛乳1l")).toBe("牛乳");
+  });
+
+  it("サフィックスがない場合は元のまま", () => {
+    expect(stripTrailingQuantity("玉ねぎ")).toBe("玉ねぎ");
+    expect(stripTrailingQuantity("豚ロース")).toBe("豚ロース");
+  });
+
+  it("空文字や全部剥がれる場合は元を返す（誤剥がし防止）", () => {
+    expect(stripTrailingQuantity("")).toBe("");
+    expect(stripTrailingQuantity("3個")).toBe("3個"); // 剥がした結果が空 → 元を返す
   });
 });

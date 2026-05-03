@@ -7,7 +7,6 @@
 
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { loadFoodIndex } from "@/lib/foods/queries";
 import { attachFoodIdsToItems } from "./attach-food-ids";
@@ -233,5 +232,4 @@ export async function deleteShoppingRecord(id: string): Promise<void> {
   }
   revalidatePath("/shopping");
   revalidatePath("/dashboard");
-  redirect("/shopping");
 }
