@@ -18,8 +18,9 @@
 import type { BudgetMode, GeminiModel } from "./types";
 
 // =====================================================================
-// モデル別の単価表（USD per 1M tokens, 2026-04 時点の参考値）
-// 実コストはモデル変更時にここを更新する。Gemini 3 系の正式価格が変わった場合は要調整。
+// モデル別の単価表（USD per 1M tokens, 2026 春時点の Google AI Studio 公開価格）
+// 実コストはモデル変更時にここを更新する。
+// 出典: https://ai.google.dev/gemini-api/docs/pricing
 // =====================================================================
 
 interface ModelPricing {
@@ -28,13 +29,12 @@ interface ModelPricing {
 }
 
 const PRICING: Record<string, ModelPricing> = {
-  // Gemini 3 系（仮の推定値、リリース時に要更新）
-  "gemini-3-flash": { input_per_1m: 0.5, output_per_1m: 3.0 },
-  "gemini-3-pro": { input_per_1m: 5.0, output_per_1m: 15.0 },
-  "gemini-3.1-flash-lite": { input_per_1m: 0.1, output_per_1m: 0.4 },
-  // Gemini 2.5 系（フォールバック用に既知の値を保持）
+  // Gemini 2.5 系（現行 GA モデル）
   "gemini-2.5-flash": { input_per_1m: 0.3, output_per_1m: 2.5 },
   "gemini-2.5-pro": { input_per_1m: 1.25, output_per_1m: 10.0 },
+  "gemini-2.5-flash-lite": { input_per_1m: 0.1, output_per_1m: 0.4 },
+  // Gemini 2.0 系（フォールバック用に保持）
+  "gemini-2.0-flash": { input_per_1m: 0.1, output_per_1m: 0.4 },
 };
 
 const FALLBACK_PRICING: ModelPricing = { input_per_1m: 1.0, output_per_1m: 5.0 };

@@ -77,19 +77,19 @@ describe("callGemini", () => {
 
     const res = await callGemini(
       { user: "Hi" },
-      { apiKey: "k", model: "gemini-3-flash", fetchImpl: fetchMock },
+      { apiKey: "k", model: "gemini-2.5-flash", fetchImpl: fetchMock },
     );
 
     expect(res.data).toBe("hello");
-    expect(res.meta.model).toBe("gemini-3-flash");
+    expect(res.meta.model).toBe("gemini-2.5-flash");
     expect(res.meta.tokens_in).toBe(100);
     expect(res.meta.tokens_out).toBe(50);
-    // 100*0.5/1M + 50*3/1M = 0.00005 + 0.00015 = 0.0002
-    expect(res.meta.cost_usd).toBeCloseTo(0.0002, 6);
+    // 100*0.3/1M + 50*2.5/1M = 0.00003 + 0.000125 = 0.000155
+    expect(res.meta.cost_usd).toBeCloseTo(0.000155, 6);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0]!;
-    expect(String(url)).toContain("gemini-3-flash:generateContent");
+    expect(String(url)).toContain("gemini-2.5-flash:generateContent");
     expect(init.method).toBe("POST");
     expect(init.headers["x-goog-api-key"]).toBe("k");
   });

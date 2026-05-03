@@ -286,7 +286,9 @@ Deno.serve(async (req: Request) => {
 
   // 9. Gemini 呼出
   const apiKey = mustEnv("GEMINI_API_KEY");
-  const model = getEnv("MODEL_ADVICE") ?? "gemini-3-pro";
+  // 設計上は Pro が望ましいが、Pro は free tier で利用不可のため
+  // デフォルトは flash。billing 有効環境では MODEL_ADVICE=gemini-2.5-pro を設定する。
+  const model = getEnv("MODEL_ADVICE") ?? "gemini-2.5-flash";
 
   const prompt = buildNutritionAdvicePrompt({
     monthLabel: monthLabel(monthStart),
