@@ -68,17 +68,15 @@ export function stripTrailingQuantity(s: string): string {
   if (!s) return s;
   // 数字 + 単位（個・本・パック・玉・袋・枚・束・尾・杯・缶・片・房・株・切れ・本入り）
   const QTY_UNIT = /\d+(?:本入り|本|個|玉|パック|袋|枚|束|尾|杯|缶|片|房|株|切れ)$/;
-  // サイズ表記（数字 + l/m/s、または ll/lm/sm 等の英字 1-2 文字）
-  const SIZE = /(?:\d+[lms]|(?:^|\D)(?:ll|l|m|s|ss|2l|3l|4l))$/i;
   let result = s;
   // 1 段階目: 数量+単位
   const m1 = QTY_UNIT.exec(result);
   if (m1) result = result.slice(0, m1.index);
   // 2 段階目: サイズ表記（数字 + l/m/s）
+  // 単独 "l" / "m" / "s" は "アボカドl" 等の誤剥がしリスクが高いため対象外。
   const m2 = /\d+[lms]$/.exec(result);
   if (m2) result = result.slice(0, m2.index);
   return result || s; // 全部剥がれた場合は元を返す
-  // SIZE 単独（例: 末尾 "l"）は誤剥がし（"アボカドl" 等）リスクが高いため対象外。
 }
 
 /** 食材名（raw_name / display_name）から food_id を引く。
