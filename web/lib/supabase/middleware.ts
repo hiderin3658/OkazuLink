@@ -33,8 +33,15 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+  // /api/* は認証失敗時に redirect ではなく JSON 401 を返す。
+  // ページ系の redirect だと fetch がデフォルトで follow して 200 (HTML)
+  // を返してしまい、API クライアントが認証エラーを判定できなくなる。
+  const isApi = pathname.startsWith("/api/");
 
   if (!user && !isPublic) {
+    if (isApi) {
+      return jsonUnauthorized(supabaseResponse);
+    }
     return redirectPreservingCookies(request, "/login", null, supabaseResponse);
   }
 
@@ -49,6 +56,9 @@ export async function updateSession(request: NextRequest) {
 
     if (!allowed) {
       await supabase.auth.signOut();
+      if (isApi) {
+        return jsonUnauthorized(supabaseResponse, "Not in allowlist");
+      }
       return redirectPreservingCookies(
         request,
         "/login",
@@ -59,6 +69,24 @@ export async function updateSession(request: NextRequest) {
   }
 
   return supabaseResponse;
+}
+
+/**
+ * /api/* 向けの 401 JSON レスポンス。
+ * supabaseResponse の cookie（signOut 等で更新されたもの）を引き継ぐ。
+ */
+function jsonUnauthorized(
+  source: NextResponse,
+  message = "Unauthorized",
+): NextResponse {
+  const res = new NextResponse(JSON.stringify({ error: message }), {
+    status: 401,
+    headers: { "Content-Type": "application/json" },
+  });
+  source.cookies.getAll().forEach((c) => {
+    res.cookies.set(c.name, c.value, c);
+  });
+  return res;
 }
 
 /**
