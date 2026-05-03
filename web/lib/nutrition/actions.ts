@@ -5,7 +5,6 @@
 // recomputeMonthlySummary: 指定月の shopping データを集計して
 // nutrition_monthly_summaries に upsert し、結果を返す。
 
-import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { aggregateMonthly } from "./aggregate";
 import {
@@ -77,6 +76,5 @@ export async function recomputeMonthlySummary(
     return { ok: false, message: "栄養サマリーの保存に失敗しました" };
   }
 
-  revalidatePath("/nutrition");
   return { ok: true, summary, computed_at };
 }
