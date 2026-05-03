@@ -67,6 +67,8 @@ function addToIndex(map: Map<string, string>, key: string, id: string): void {
 export function stripTrailingQuantity(s: string): string {
   if (!s) return s;
   // 数字 + 単位（個・本・パック・玉・袋・枚・束・尾・杯・缶・片・房・株・切れ・本入り）
+  // 並び順注意: 正規表現の交替は左から評価されるため、長いトークン（"本入り"）を
+  // 短いトークン（"本"）より先に置かないと最長マッチにならない。新規追加時も同様に注意。
   const QTY_UNIT = /\d+(?:本入り|本|個|玉|パック|袋|枚|束|尾|杯|缶|片|房|株|切れ)$/;
   let result = s;
   // 1 段階目: 数量+単位
@@ -96,17 +98,20 @@ export function matchFood(
   if (displayName && displayName.trim().length > 0) candidates.push(displayName);
   if (rawName && rawName.trim().length > 0) candidates.push(rawName);
 
+  // candidate ごとに normalize を 1 回だけ計算してキャッシュする
+  // （3 段階の判定で同じ値を使い回すため）
+  const normalized = candidates.map((c) => normalize(c));
+
   // 1〜2: 完全一致 / 正規化一致
-  for (const c of candidates) {
-    const norm = normalize(c);
+  for (const norm of normalized) {
     if (norm && index.has(norm)) {
       return index.get(norm) ?? null;
     }
   }
   // 3: 末尾サフィックスを剥がした variant でも試す
-  for (const c of candidates) {
-    const stripped = stripTrailingQuantity(normalize(c));
-    if (stripped && stripped !== normalize(c) && index.has(stripped)) {
+  for (const norm of normalized) {
+    const stripped = stripTrailingQuantity(norm);
+    if (stripped && stripped !== norm && index.has(stripped)) {
       return index.get(stripped) ?? null;
     }
   }

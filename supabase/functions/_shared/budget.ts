@@ -31,6 +31,9 @@ interface ModelPricing {
 const PRICING: Record<string, ModelPricing> = {
   // Gemini 2.5 系（現行 GA モデル）
   "gemini-2.5-flash": { input_per_1m: 0.3, output_per_1m: 2.5 },
+  // gemini-2.5-pro はプロンプト ≤200K tokens 前提の単価。
+  // >200K tokens の場合は input $2.50 / output $15.00 に変動する。
+  // 本アプリのプロンプトは数千 token 程度なので 200K 以下前提で妥当。
   "gemini-2.5-pro": { input_per_1m: 1.25, output_per_1m: 10.0 },
   "gemini-2.5-flash-lite": { input_per_1m: 0.1, output_per_1m: 0.4 },
   // Gemini 2.0 系（フォールバック用に保持）

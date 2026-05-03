@@ -40,7 +40,7 @@ export async function updateSession(request: NextRequest) {
 
   if (!user && !isPublic) {
     if (isApi) {
-      return jsonUnauthorized(supabaseResponse);
+      return jsonError(supabaseResponse, 401, "Unauthorized");
     }
     return redirectPreservingCookies(request, "/login", null, supabaseResponse);
   }
@@ -57,7 +57,8 @@ export async function updateSession(request: NextRequest) {
     if (!allowed) {
       await supabase.auth.signOut();
       if (isApi) {
-        return jsonUnauthorized(supabaseResponse, "Not in allowlist");
+        // 認証は通っているがアクセス権がないため 403 Forbidden が semantic 的に正しい
+        return jsonError(supabaseResponse, 403, "Not in allowlist");
       }
       return redirectPreservingCookies(
         request,
@@ -72,15 +73,17 @@ export async function updateSession(request: NextRequest) {
 }
 
 /**
- * /api/* 向けの 401 JSON レスポンス。
+ * /api/* 向けの JSON エラーレスポンス。
+ * 未認証 (401 Unauthorized) と認可拒否 (403 Forbidden) の双方で使う。
  * supabaseResponse の cookie（signOut 等で更新されたもの）を引き継ぐ。
  */
-function jsonUnauthorized(
+function jsonError(
   source: NextResponse,
-  message = "Unauthorized",
+  status: 401 | 403,
+  message: string,
 ): NextResponse {
   const res = new NextResponse(JSON.stringify({ error: message }), {
-    status: 401,
+    status,
     headers: { "Content-Type": "application/json" },
   });
   source.cookies.getAll().forEach((c) => {
