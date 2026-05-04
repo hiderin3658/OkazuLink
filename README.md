@@ -32,6 +32,8 @@ OkazuLink/
 - Supabase（プロジェクト作成用、無料枠で OK）
 - Vercel（デプロイ用）
 - GitHub（リポジトリ）
+- Google AI Studio（Gemini API キー、無料枠で OK）
+- 楽天デベロッパー（**P-14 楽天レシピ API を使う場合のみ**、無料）
 
 ### 2. Supabase プロジェクト作成
 
@@ -140,8 +142,43 @@ pnpm dev
 - **Phase 0**: 基盤整備（本 README の手順）← ✅ 構築完了
 - **Phase 1**: レシート → 食材抽出 → レシピ提案 ← ✅ 構築完了
 - **Phase 2**: 栄養アドバイザー ← ✅ 構築完了
+- **P-14**: 楽天レシピ API 併用（AI / 楽天 を設定で切替）← ✅ 実装完了
 - **Phase 3**: 体重 / 運動 / 食事ログ
-- 将来拡張: 月次レポート、食材在庫、楽天レシピ API 併用 等
+- 将来拡張: 月次レポート、食材在庫 等
+
+## P-14 楽天レシピ API 併用（オプション）
+
+`/recipes` 画面で **AI 生成（Gemini）** と **楽天人気ランキング** を切り替えられます。
+楽天モードは無料で動作し、AI コストを削減したいときに便利です。
+
+### 楽天デベロッパー登録（楽天モードを使う場合のみ必須）
+
+1. https://webservice.rakuten.co.jp/ にアクセスして楽天会員でログイン
+2. 「アプリ ID 発行」→ アプリ名・URL を入力
+   - URL は本番デプロイ後の `https://<your-app>.vercel.app` で OK
+   - ローカル開発のみなら `http://localhost:3000` でも可
+3. 発行された **applicationId** を控える
+4. Supabase Edge Function に登録:
+   ```bash
+   supabase secrets set RAKUTEN_APP_ID=1234567890123456789
+   ```
+5. `suggest-recipes` Function を再 deploy:
+   ```bash
+   supabase functions deploy suggest-recipes --use-api
+   ```
+
+### ユーザー側の使い方
+
+- `/settings` でデフォルトソース（AI / 楽天）を選択して保存可能
+- `/recipes` 画面の「提案ソース」ラジオでリクエスト毎に切替可
+- 楽天モードでは食材指定不可（カテゴリ別ランキング上位 4 件を表示）
+- 詳細画面の手順は楽天サイトへの誘導リンク（規約により転載不可）
+
+### 楽天モードを使わない場合
+
+`RAKUTEN_APP_ID` を未設定のまま運用可能です。`/recipes` では AI モードのみが正常動作し、
+ユーザーが楽天モードを選択した場合のみ 500 エラーになります（フロントの SourcePicker
+を一時的に隠す等の運用判断は管理者にお任せ）。
 
 ## Phase 2 機能まとめ
 

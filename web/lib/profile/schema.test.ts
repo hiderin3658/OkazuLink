@@ -164,4 +164,26 @@ describe("userProfileInputSchema", () => {
       expect(out.data.target_weight_kg).toBe(55);
     }
   });
+
+  // P-14: default_recipe_source
+  it("default_recipe_source 未指定は 'ai' にデフォルト", () => {
+    const out = userProfileInputSchema.safeParse({});
+    expect(out.success).toBe(true);
+    if (out.success) expect(out.data.default_recipe_source).toBe("ai");
+  });
+
+  it("default_recipe_source = 'rakuten' を受け入れる", () => {
+    const out = userProfileInputSchema.safeParse({
+      default_recipe_source: "rakuten",
+    });
+    expect(out.success).toBe(true);
+    if (out.success) expect(out.data.default_recipe_source).toBe("rakuten");
+  });
+
+  it("default_recipe_source の無効値はエラー", () => {
+    const out = userProfileInputSchema.safeParse({
+      default_recipe_source: "cookpad",
+    });
+    expect(out.success).toBe(false);
+  });
 });

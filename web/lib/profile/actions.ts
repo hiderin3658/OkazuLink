@@ -40,8 +40,10 @@ export async function updateMyProfile(
     birth_year,
     height_cm,
     target_weight_kg,
+    default_recipe_source,
   } = parsed.data;
-  // Phase 2 で birth_year / height_cm / target_weight_kg を追加。
+  // Phase 2 で birth_year / height_cm / target_weight_kg、
+  // P-14 で default_recipe_source を追加。
   // Supabase の upsert は ON CONFLICT DO UPDATE 時に提供されたキーのみ SET するため、
   // 将来追加されるフィールド（例: 体組成計連携）は別 Action で扱う設計とする。
   const { error } = await supabase
@@ -56,6 +58,7 @@ export async function updateMyProfile(
         birth_year,
         height_cm,
         target_weight_kg,
+        default_recipe_source,
       },
       { onConflict: "user_id" },
     );

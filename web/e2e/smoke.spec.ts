@@ -71,3 +71,12 @@ test.describe("/login 画面", () => {
     ).toBeVisible();
   });
 });
+
+// P-14: 楽天モード対応の最低限スモーク（未認証経路の挙動のみ）。
+// 実際の楽天 API 呼出は手動テスト（README の確認手順に記載）。
+test.describe("/recipes（楽天モード対応）", () => {
+  test("/recipes は未認証時に /login へリダイレクト", async ({ page }) => {
+    await page.goto("/recipes");
+    await expect(page).toHaveURL(/\/login(\?.*)?$/);
+  });
+});

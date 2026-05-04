@@ -5,7 +5,7 @@
 // 性別は当面「女性」固定（プロジェクトターゲット）。
 
 import { z } from "zod";
-import { GOAL_TYPES } from "@/types/database";
+import { GOAL_TYPES, RECIPE_SOURCE_PREFERENCES } from "@/types/database";
 
 const TAG_RE = /^[^\s,]/; // 非空白・非カンマ始まり
 const MAX_TAG_LEN = 30;
@@ -91,6 +91,11 @@ export const userProfileInputSchema = z.object({
     max: 300,
     fieldLabel: "目標体重",
   }),
+  // P-14: レシピ提案のデフォルトソース。未指定時は "ai"（DB 側のデフォルトと整合）
+  default_recipe_source: z
+    .enum(RECIPE_SOURCE_PREFERENCES)
+    .optional()
+    .default("ai"),
 });
 
 export type UserProfileInput = z.input<typeof userProfileInputSchema>;
