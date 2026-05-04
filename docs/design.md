@@ -3,7 +3,7 @@
 > 一人暮らし女性向け「買い物 → 料理 → 栄養 → 健康管理」を一気通貫でサポートするパーソナル食生活アドバイザー Web アプリ。
 
 - 作成日: 2026-04-21
-- バージョン: 0.6
+- バージョン: 0.7
 - 対象: MVP 〜 将来拡張までの全体像
 
 ### 変更履歴
@@ -37,6 +37,14 @@
   - 月次栄養 CSV エクスポート（達成率 + 判定 + 計算前提付き）
   - ai_advice_logs.request_payload->input_hash 用 partial index 追加
   - 全 7 PR (PR2-A 〜 PR2-G) で段階的にリリース、独立コードレビューを各 PR に実施
+- v0.7（2026-05-04）: P-14 楽天レシピ API 併用の実装結果を反映
+  - recipes に external_provider / external_id / external_url / external_image_url / external_meta カラムを追加（既存 'external' enum + provider カラムでサブ識別）
+  - rakuten_recipe_cache テーブル新設（cuisine 単位、TTL 6h）
+  - user_profiles.default_recipe_source（'ai' / 'rakuten'）追加
+  - suggest-recipes Edge Function に source 分岐を追加（AI 経路は完全互換維持、Q-P14-05 の決定通り楽天障害時の AI フォールバックは行わない）
+  - フロント UI に SourcePicker（AI / 楽天）を追加、楽天モード時は食材プール / 候補数 UI を非表示、サムネ + 外部リンクで楽天詳細表示
+  - 楽天規約準拠（手順テキストは転載せず楽天サイトへ誘導、画像は referrerPolicy="no-referrer"）
+  - 全 5 PR (PR-A 〜 PR-E) で段階的にリリース、独立コードレビューを各 PR に実施
 
 ---
 
@@ -124,7 +132,7 @@
 | P-11 | 月次振り返りレポート自動生成 | AI が所感コメント付きレポートを生成 |
 | P-12 | アレルギー／嗜好フィルタ強化 | レシピ提案から自動除外 |
 | P-13 | 複数画像の一括アップ | 1 回の買物で複数レシートがある場合の一括処理 |
-| P-14 | 外部レシピ API 併用（楽天レシピ） | 実在レシピへのリンク付与 |
+| ~~P-14~~ | ~~外部レシピ API 併用（楽天レシピ）~~ | **v0.7 で実装済**（AI / 楽天 を設定で切替可能、詳細は §11 参照） |
 | P-15 | スマート体重計・運動計連携 | Withings／Google Fit 等（将来） |
 | P-16 | CSV 以外のエクスポート（JSON, PDF） | データ持ち出し手段の拡充 |
 
@@ -579,7 +587,7 @@ id, user_id, kind (ocr/recipe/nutrition/coach), model, request_payload (jsonb), 
 ### 将来拡張（優先度順）
 - P-11 月次振り返りレポート自動生成（Gemini 3.1 Flash Lite）
 - P-01/P-02/P-03 食材在庫＋消費期限＋買い足しリスト
-- P-14 楽天レシピ API 併用（external ソースとして統合）
+- ~~P-14 楽天レシピ API 併用~~（**v0.7 で実装済**）
 - P-05 予算ダッシュボード
 - P-06 体組成推移
 - P-09 PWA 強化（オフライン、カメラ直起動）
@@ -595,7 +603,7 @@ id, user_id, kind (ocr/recipe/nutrition/coach), model, request_payload (jsonb), 
 |---|------|---------|
 | Q-01 | 画像の主な入力形態 | **レシート（レジ発行紙レシート）がメイン**。手書きメモは対象外 |
 | Q-02 | AI モデル | **Gemini 3 系で統一**。タスク別に Flash / Pro / Flash Lite を使い分け（環境変数で差替可） |
-| Q-03 | レシピ提案の出典 | **段階導入**。Phase 1 は AI 生成のみ、将来 P-14 で楽天レシピ API を併用検討 |
+| Q-03 | レシピ提案の出典 | **段階導入**。Phase 1 で AI 生成（Gemini Flash）を実装、v0.7（P-14）で楽天レシピ API 併用を実装。設定画面 (`default_recipe_source`) でユーザーが AI / 楽天 を選択可能。リクエスト毎の上書きも可。設計詳細は `docs/p14-rakuten-recipe-design.md`。 |
 | Q-04 | 栄養データ出典 | **日本食品標準成分表（八訂）** を seed。マッチ失敗食材は AI 補助推定 |
 | Q-05 | 体組成計連携 | **手入力**（MVP〜Phase 3）。将来 P-15 として拡張候補 |
 | Q-06 | Apple Health／Google Fit 連携 | **手入力**。テンプレを充実させ入力負担を軽減。将来 P-15 で連携検討 |

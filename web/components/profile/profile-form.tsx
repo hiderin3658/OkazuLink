@@ -10,7 +10,10 @@ import type { UserProfileInput } from "@/lib/profile/schema";
 import {
   GOAL_TYPES,
   GOAL_TYPE_LABEL,
+  RECIPE_SOURCE_PREFERENCES,
+  RECIPE_SOURCE_PREFERENCE_LABEL,
   type GoalType,
+  type RecipeSourcePreference,
   type UserProfile,
 } from "@/types/database";
 import { StringListEditor } from "./string-list-editor";
@@ -40,6 +43,8 @@ export function ProfileForm({ initial }: Props) {
   const [targetWeight, setTargetWeight] = useState<string>(
     initial?.target_weight_kg != null ? String(initial.target_weight_kg) : "",
   );
+  const [defaultRecipeSource, setDefaultRecipeSource] =
+    useState<RecipeSourcePreference>(initial?.default_recipe_source ?? "ai");
   const [pending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<ProfileActionResult | null>(null);
 
@@ -54,6 +59,7 @@ export function ProfileForm({ initial }: Props) {
       birth_year: birthYear,
       height_cm: heightCm,
       target_weight_kg: targetWeight,
+      default_recipe_source: defaultRecipeSource,
     };
     startTransition(async () => {
       const result = await updateMyProfile(null, input);
@@ -189,6 +195,42 @@ export function ProfileForm({ initial }: Props) {
         <p className="text-xs text-[var(--color-muted-foreground)]">
           推奨摂取量は厚労省「日本人の食事摂取基準（2020 年版）」女性・身体活動レベル II
           を年齢区分で適用しています。性別は当面「女性」固定です。
+        </p>
+      </fieldset>
+
+      {/* P-14: レシピ提案のデフォルトソース */}
+      <fieldset className="space-y-2 rounded-md border border-[var(--color-border)] p-3">
+        <legend className="px-1 text-xs text-[var(--color-muted-foreground)]">
+          レシピ提案のデフォルトソース
+        </legend>
+        <div className="flex flex-col gap-1.5">
+          {RECIPE_SOURCE_PREFERENCES.map((src) => {
+            const active = defaultRecipeSource === src;
+            return (
+              <label
+                key={src}
+                className={cn(
+                  "flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm",
+                  active
+                    ? "border-[var(--color-primary)] bg-[color-mix(in_oklch,var(--color-primary)_8%,white)]"
+                    : "border-[var(--color-border)] bg-white hover:bg-[var(--color-muted)]",
+                )}
+              >
+                <input
+                  type="radio"
+                  name="default-recipe-source"
+                  value={src}
+                  checked={active}
+                  onChange={() => setDefaultRecipeSource(src)}
+                  className="size-4"
+                />
+                <span>{RECIPE_SOURCE_PREFERENCE_LABEL[src]}</span>
+              </label>
+            );
+          })}
+        </div>
+        <p className="text-xs text-[var(--color-muted-foreground)]">
+          /recipes 画面の初期選択になります。リクエスト毎に変更も可能です。
         </p>
       </fieldset>
 
