@@ -194,6 +194,8 @@ supabase secrets set MODEL_OCR_FALLBACK=gemini-2.5-pro
 supabase secrets set MODEL_RECIPE=gemini-2.5-flash
 supabase secrets set MODEL_ADVICE=gemini-2.5-pro
 supabase secrets set MODEL_REPORT=gemini-2.5-flash-lite
+# P-14: 楽天レシピ API（楽天モードのレシピ提案を使う場合のみ必須）
+supabase secrets set RAKUTEN_APP_ID=1234567890123456789
 supabase secrets set MONTHLY_AI_BUDGET_JPY=1000
 supabase secrets set AI_BUDGET_MODE=soft
 supabase secrets set USD_JPY_RATE=150
@@ -283,6 +285,7 @@ PR-C 以降では実画像・実プロンプトでの E2E 確認を行う。
 | `MODEL_RECIPE` | レシピ提案用モデル | optional | `gemini-2.5-flash` |
 | `MODEL_ADVICE` | 栄養アドバイス（Phase 2）用モデル | optional | `gemini-2.5-flash` |
 | `MODEL_REPORT` | 月次レポート（将来）用モデル | optional | `gemini-2.5-flash-lite` |
+| `RAKUTEN_APP_ID` | 楽天レシピ API のアプリ ID（楽天モード使用時のみ必須）| optional* | `1234567890123456789` |
 | `MONTHLY_AI_BUDGET_JPY` | 月次予算（円） | optional | `1000` |
 | `AI_BUDGET_MODE` | `soft`（警告のみ）/ `hard`（超過時停止） | optional | `soft` |
 | `USD_JPY_RATE` | コスト円換算用レート | optional | `150` |

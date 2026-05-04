@@ -36,20 +36,11 @@ import type {
 import {
   RecipeValidationError,
   validateRecipeSuggestions,
-  VALID_CUISINES,
+  validateRequestInput,
+  type AiCleanInput,
+  type RequestBody,
 } from "./validate.ts";
-
-interface RequestBody {
-  ingredients?: string[];
-  cuisine?: string;
-  servings?: number;
-  candidateCount?: number;
-  profile?: {
-    allergies?: string[];
-    disliked?: string[];
-    goal_type?: string | null;
-  };
-}
+import { runRakutenMode } from "./rakuten-flow.ts";
 
 interface RecipeOut {
   id: string;
@@ -68,8 +59,6 @@ interface SuccessResponse {
   results: RecipeOut[];
 }
 
-const VALID_CUISINE_SET: ReadonlySet<string> = new Set(VALID_CUISINES);
-
 // =====================================================================
 // helpers
 // =====================================================================
@@ -87,60 +76,6 @@ function aiFailureCode(err: unknown): EdgeErrorCode {
   }
   if (err instanceof RecipeValidationError) return "AI_INVALID_RESPONSE";
   return "INTERNAL_ERROR";
-}
-
-function validateInput(body: RequestBody): { ok: true; clean: Required<Omit<RequestBody, "profile">> & { profile: NonNullable<RequestBody["profile"]> } } | { ok: false; reason: string } {
-  if (!Array.isArray(body.ingredients) || body.ingredients.length === 0) {
-    return { ok: false, reason: "ingredients must be a non-empty array" };
-  }
-  if (body.ingredients.length > 50) {
-    return { ok: false, reason: "ingredients exceeds 50 items" };
-  }
-  const cleaned = body.ingredients
-    .map((s) => (typeof s === "string" ? s.trim() : ""))
-    .filter((s) => s.length > 0 && s.length <= 100);
-  if (cleaned.length === 0) {
-    return { ok: false, reason: "ingredients are all empty after trim" };
-  }
-
-  const cuisine = typeof body.cuisine === "string" ? body.cuisine : "";
-  if (!VALID_CUISINE_SET.has(cuisine)) {
-    return {
-      ok: false,
-      reason: `cuisine must be one of ${VALID_CUISINES.join("/")}`,
-    };
-  }
-
-  const servings = Math.min(
-    Math.max(1, Math.round(Number(body.servings ?? 1) || 1)),
-    20,
-  );
-  const candidateCount = Math.min(
-    Math.max(1, Math.round(Number(body.candidateCount ?? 4) || 4)),
-    8,
-  );
-
-  const profile = {
-    allergies: Array.isArray(body.profile?.allergies)
-      ? body.profile!.allergies.filter((s): s is string => typeof s === "string").slice(0, 30)
-      : [],
-    disliked: Array.isArray(body.profile?.disliked)
-      ? body.profile!.disliked.filter((s): s is string => typeof s === "string").slice(0, 30)
-      : [],
-    goal_type:
-      typeof body.profile?.goal_type === "string" ? body.profile.goal_type : null,
-  };
-
-  return {
-    ok: true,
-    clean: {
-      ingredients: cleaned,
-      cuisine,
-      servings,
-      candidateCount,
-      profile,
-    },
-  };
 }
 
 // =====================================================================
@@ -167,9 +102,39 @@ Deno.serve(async (req: Request) => {
   } catch {
     return badRequest("Invalid JSON body");
   }
-  const v = validateInput(body);
-  if (!v.ok) return badRequest(v.reason);
-  const { ingredients, cuisine, servings, candidateCount, profile } = v.clean;
+  const v = validateRequestInput(body);
+  if (!v.ok) {
+    const err: EdgeError = { error: v.reason, code: v.code };
+    return jsonResponse(err, { status: 400 });
+  }
+
+  // 3. 楽天モードは別経路で処理（AI 経路に到達しない）
+  if (v.clean.source === "rakuten") {
+    let rakutenAppId: string;
+    try {
+      rakutenAppId = mustEnv("RAKUTEN_APP_ID");
+    } catch (err) {
+      console.error("[suggest-recipes] RAKUTEN_APP_ID missing:", err);
+      const e: EdgeError = {
+        error: "Server misconfigured: RAKUTEN_APP_ID is not set",
+        code: "INTERNAL_ERROR",
+      };
+      return jsonResponse(e, { status: 500 });
+    }
+    const serviceClient = createServiceClient();
+    const result = await runRakutenMode({
+      supabase: auth.supabase,
+      serviceClient,
+      userId: auth.userId,
+      input: v.clean,
+      rakutenAppId,
+    });
+    return jsonResponse(result.body, { status: result.status });
+  }
+
+  // 以降は AI モードのみ
+  const aiInput: AiCleanInput = v.clean;
+  const { ingredients, cuisine, servings, candidateCount, profile } = aiInput;
 
   // 3. キャッシュキー
   const cacheKey = buildRecipeCacheKey({
