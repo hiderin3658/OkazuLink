@@ -21,6 +21,14 @@ export const GOAL_TYPE_LABEL: Record<GoalType, string> = {
   custom: "カスタム",
 };
 
+export const RECIPE_SOURCE_PREFERENCES = ["ai", "rakuten"] as const;
+export type RecipeSourcePreference = (typeof RECIPE_SOURCE_PREFERENCES)[number];
+
+export const RECIPE_SOURCE_PREFERENCE_LABEL: Record<RecipeSourcePreference, string> = {
+  ai: "AI 生成（おすすめ・自分の食材で）",
+  rakuten: "楽天レシピ（無料・人気ランキング）",
+};
+
 export interface UserProfile {
   user_id: string;
   display_name: string | null;
@@ -30,6 +38,8 @@ export interface UserProfile {
   goal_type: GoalType | null;
   allergies: string[];
   disliked_foods: string[];
+  /** P-14: レシピ提案のデフォルトソース。リクエスト時に上書き可。 */
+  default_recipe_source: RecipeSourcePreference;
   created_at: string;
   updated_at: string;
 }
@@ -142,6 +152,11 @@ export const CUISINE_LABEL: Record<Cuisine, string> = {
 
 export type RecipeSource = "ai_generated" | "external";
 
+/** 外部レシピの提供元（source='external' のとき external_provider に入る値）。
+ *  P-14 で 'rakuten' を導入。将来 'cookpad' 等を追加する想定。 */
+export const EXTERNAL_RECIPE_PROVIDERS = ["rakuten"] as const;
+export type ExternalRecipeProvider = (typeof EXTERNAL_RECIPE_PROVIDERS)[number];
+
 export interface Recipe {
   id: string;
   title: string;
@@ -153,7 +168,26 @@ export interface Recipe {
   steps: string[]; // jsonb array
   source: RecipeSource;
   generated_prompt_hash: string | null;
+  /** P-14: 外部 API 由来時のサブ識別子（'rakuten' 等）。source='ai_generated' なら null。 */
+  external_provider: ExternalRecipeProvider | null;
+  /** P-14: 外部 API 側のレシピ ID（楽天: recipeId）。 */
+  external_id: number | null;
+  /** P-14: 外部レシピの公式 URL（詳細画面の遷移先）。 */
+  external_url: string | null;
+  /** P-14: サムネイル画像 URL。`<img referrerpolicy="no-referrer">` で表示する。 */
+  external_image_url: string | null;
+  /** P-14: provider 固有の追加メタ（投稿者名・公開日・所要・費用感など）。 */
+  external_meta: Record<string, unknown> | null;
   created_at: string;
+}
+
+/** P-14: rakuten_recipe_cache テーブル。cuisine 単位のランキングキャッシュ。 */
+export interface RakutenRecipeCache {
+  cuisine: Cuisine;
+  rakuten_category_id: string;
+  recipe_ids: string[]; // recipes.id の配列（順位順）
+  fetched_at: string;
+  api_response_meta: Record<string, unknown> | null;
 }
 
 export interface RecipeIngredient {
