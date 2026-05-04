@@ -1,8 +1,11 @@
 // Gemini が返した JSON （RecipeSuggestion[] 想定）を検証・整形する。
+// 加えて、suggest-recipes Edge Function のリクエスト入力検証 (validateRequestInput)
+// もここに集約する（AI / 楽天モードの分岐起点）。
 //
 // LLM の出力は JSON Schema で固定しても乱れることがあるため、必須項目の存在と
 // 型を厳密にチェックして安全に整形する。純粋関数として実装し vitest で検証。
 
+import { rakutenCategoryFor } from "../_shared/cuisine-rakuten-map.ts";
 import type {
   RecipeIngredientSuggestion,
   RecipeSuggestion,
@@ -165,4 +168,168 @@ export function validateRecipeSuggestions(raw: unknown): RecipeSuggestion[] {
     throw new RecipeValidationError("Response is empty");
   }
   return raw.map((r, i) => validateOne(r, i));
+}
+
+// =====================================================================
+// リクエスト入力 (POST body) の検証
+// =====================================================================
+
+/** リクエスト body の最小型（受信側で保持） */
+export interface RequestBody {
+  source?: string;
+  ingredients?: unknown;
+  cuisine?: unknown;
+  servings?: unknown;
+  candidateCount?: unknown;
+  profile?: {
+    allergies?: unknown;
+    disliked?: unknown;
+    goal_type?: unknown;
+  } | null;
+}
+
+export interface AiCleanInput {
+  source: "ai";
+  ingredients: string[];
+  cuisine: ValidCuisine;
+  servings: number;
+  candidateCount: number;
+  profile: {
+    allergies: string[];
+    disliked: string[];
+    goal_type: string | null;
+  };
+}
+
+export interface RakutenCleanInput {
+  source: "rakuten";
+  cuisine: ValidCuisine;
+  candidateCount: number;
+}
+
+/** 入力検証の結果（判別共用体）。`code` はクライアント側のエラーコードに直結。 */
+export type ValidateInputResult =
+  | { ok: true; clean: AiCleanInput | RakutenCleanInput }
+  | {
+      ok: false;
+      reason: string;
+      code: "BAD_REQUEST" | "RAKUTEN_UNSUPPORTED_CUISINE";
+    };
+
+/** source 文字列の正規化。未指定/空は "ai"、無効値はエラー扱いのため null。 */
+function normalizeSource(raw: unknown): "ai" | "rakuten" | null {
+  if (raw === undefined || raw === null || raw === "") return "ai";
+  if (raw === "ai" || raw === "rakuten") return raw;
+  return null;
+}
+
+function safeCuisineRequired(raw: unknown): ValidCuisine | null {
+  if (typeof raw !== "string") return null;
+  if (!CUISINE_SET.has(raw)) return null;
+  return raw as ValidCuisine;
+}
+
+function clamp(n: number, min: number, max: number): number {
+  return Math.min(Math.max(min, n), max);
+}
+
+function toIntOr(raw: unknown, fallback: number): number {
+  const n = typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.round(n);
+}
+
+/** suggest-recipes Edge Function の入力 body を検証して整形する。
+ *  - source は "ai" / "rakuten" / 未指定（→"ai"）のみ許容
+ *  - AI モードは ingredients 必須、profile を整形
+ *  - 楽天モードは cuisine と candidateCount のみ使う（ingredients/profile/servings は無視）
+ */
+export function validateRequestInput(body: RequestBody): ValidateInputResult {
+  const source = normalizeSource(body.source);
+  if (source === null) {
+    return {
+      ok: false,
+      reason: "source must be 'ai' or 'rakuten'",
+      code: "BAD_REQUEST",
+    };
+  }
+
+  const cuisine = safeCuisineRequired(body.cuisine);
+  if (cuisine === null) {
+    return {
+      ok: false,
+      reason: `cuisine must be one of ${VALID_CUISINES.join("/")}`,
+      code: "BAD_REQUEST",
+    };
+  }
+
+  if (source === "rakuten") {
+    // 楽天モード: cuisine が楽天 categoryId に紐付くか念のため確認（防御）
+    if (rakutenCategoryFor(cuisine) === null) {
+      return {
+        ok: false,
+        reason: `cuisine "${cuisine}" is not mapped to Rakuten category`,
+        code: "RAKUTEN_UNSUPPORTED_CUISINE",
+      };
+    }
+    const candidateCount = clamp(toIntOr(body.candidateCount, 4), 1, 4);
+    return {
+      ok: true,
+      clean: { source: "rakuten", cuisine, candidateCount },
+    };
+  }
+
+  // AI モード: 既存 validateInput と同等のルール
+  if (!Array.isArray(body.ingredients) || body.ingredients.length === 0) {
+    return {
+      ok: false,
+      reason: "ingredients must be a non-empty array",
+      code: "BAD_REQUEST",
+    };
+  }
+  if (body.ingredients.length > 50) {
+    return { ok: false, reason: "ingredients exceeds 50 items", code: "BAD_REQUEST" };
+  }
+  const cleaned = body.ingredients
+    .map((s) => (typeof s === "string" ? s.trim() : ""))
+    .filter((s) => s.length > 0 && s.length <= 100);
+  if (cleaned.length === 0) {
+    return {
+      ok: false,
+      reason: "ingredients are all empty after trim",
+      code: "BAD_REQUEST",
+    };
+  }
+
+  const servings = clamp(toIntOr(body.servings, 1), 1, 20);
+  const candidateCount = clamp(toIntOr(body.candidateCount, 4), 1, 8);
+
+  const profile = {
+    allergies: Array.isArray(body.profile?.allergies)
+      ? (body.profile!.allergies as unknown[])
+          .filter((s): s is string => typeof s === "string")
+          .slice(0, 30)
+      : [],
+    disliked: Array.isArray(body.profile?.disliked)
+      ? (body.profile!.disliked as unknown[])
+          .filter((s): s is string => typeof s === "string")
+          .slice(0, 30)
+      : [],
+    goal_type:
+      typeof body.profile?.goal_type === "string"
+        ? body.profile!.goal_type
+        : null,
+  };
+
+  return {
+    ok: true,
+    clean: {
+      source: "ai",
+      ingredients: cleaned,
+      cuisine,
+      servings,
+      candidateCount,
+      profile,
+    },
+  };
 }

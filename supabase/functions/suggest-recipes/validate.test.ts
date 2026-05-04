@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   RecipeValidationError,
   validateRecipeSuggestions,
+  validateRequestInput,
   VALID_CUISINES,
 } from "./validate";
 
@@ -157,5 +158,169 @@ describe("validateRecipeSuggestions", () => {
       { ...minimalRecipe, title: "C" },
     ]);
     expect(out.map((r) => r.title)).toEqual(["A", "B", "C"]);
+  });
+});
+
+// =====================================================================
+// validateRequestInput: PR-C で追加した source 分岐対応の入力検証
+// =====================================================================
+
+describe("validateRequestInput", () => {
+  it("source 未指定なら 'ai' として扱い、AI ルートのバリデートが効く", () => {
+    const r = validateRequestInput({
+      cuisine: "japanese",
+      ingredients: ["豚ロース"],
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.clean.source).toBe("ai");
+  });
+
+  it("source='invalid' は BAD_REQUEST", () => {
+    const r = validateRequestInput({
+      source: "invalid",
+      cuisine: "japanese",
+      ingredients: ["x"],
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.code).toBe("BAD_REQUEST");
+      expect(r.reason).toContain("source");
+    }
+  });
+
+  it("AI モード: ingredients 必須、空配列は BAD_REQUEST", () => {
+    const r = validateRequestInput({
+      source: "ai",
+      cuisine: "japanese",
+      ingredients: [],
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.code).toBe("BAD_REQUEST");
+  });
+
+  it("AI モード: ingredients が 50 件超は BAD_REQUEST", () => {
+    const r = validateRequestInput({
+      source: "ai",
+      cuisine: "japanese",
+      ingredients: Array.from({ length: 51 }, (_, i) => `food-${i}`),
+    });
+    expect(r.ok).toBe(false);
+  });
+
+  it("AI モード: servings は 1〜20 にクランプ", () => {
+    const tooSmall = validateRequestInput({
+      cuisine: "japanese",
+      ingredients: ["a"],
+      servings: 0,
+    });
+    expect(tooSmall.ok).toBe(true);
+    if (tooSmall.ok && tooSmall.clean.source === "ai") {
+      expect(tooSmall.clean.servings).toBe(1);
+    }
+    const tooLarge = validateRequestInput({
+      cuisine: "japanese",
+      ingredients: ["a"],
+      servings: 99,
+    });
+    if (tooLarge.ok && tooLarge.clean.source === "ai") {
+      expect(tooLarge.clean.servings).toBe(20);
+    }
+  });
+
+  it("AI モード: candidateCount は 1〜8 にクランプ、未指定なら 4", () => {
+    const def = validateRequestInput({
+      cuisine: "japanese",
+      ingredients: ["a"],
+    });
+    if (def.ok && def.clean.source === "ai") {
+      expect(def.clean.candidateCount).toBe(4);
+    }
+    const max = validateRequestInput({
+      cuisine: "japanese",
+      ingredients: ["a"],
+      candidateCount: 99,
+    });
+    if (max.ok && max.clean.source === "ai") {
+      expect(max.clean.candidateCount).toBe(8);
+    }
+  });
+
+  it("AI モード: profile は allergies/disliked を string 配列に整形", () => {
+    const r = validateRequestInput({
+      cuisine: "japanese",
+      ingredients: ["a"],
+      profile: {
+        allergies: ["卵", "小麦", 123, null] as unknown as string[],
+        disliked: ["パクチー"],
+        goal_type: "diet",
+      },
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok && r.clean.source === "ai") {
+      expect(r.clean.profile.allergies).toEqual(["卵", "小麦"]);
+      expect(r.clean.profile.disliked).toEqual(["パクチー"]);
+      expect(r.clean.profile.goal_type).toBe("diet");
+    }
+  });
+
+  it("楽天モード: cuisine 必須、ingredients/profile/servings は無視される", () => {
+    const r = validateRequestInput({
+      source: "rakuten",
+      cuisine: "japanese",
+      ingredients: ["不要な値"], // 無視されるべき
+      servings: 99, // 同上
+      profile: { allergies: ["x"] }, // 同上
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.clean.source).toBe("rakuten");
+      expect(r.clean.cuisine).toBe("japanese");
+      // ingredients / servings / profile は楽天モードの clean には含まれない
+      expect("ingredients" in r.clean).toBe(false);
+      expect("servings" in r.clean).toBe(false);
+      expect("profile" in r.clean).toBe(false);
+    }
+  });
+
+  it("楽天モード: candidateCount 未指定 → 4、99 → 4 にクランプ、0 → 1 にクランプ", () => {
+    const def = validateRequestInput({ source: "rakuten", cuisine: "chinese" });
+    if (def.ok) expect(def.clean.candidateCount).toBe(4);
+
+    const max = validateRequestInput({
+      source: "rakuten",
+      cuisine: "chinese",
+      candidateCount: 99,
+    });
+    if (max.ok) expect(max.clean.candidateCount).toBe(4);
+
+    const zero = validateRequestInput({
+      source: "rakuten",
+      cuisine: "chinese",
+      candidateCount: 0,
+    });
+    if (zero.ok) expect(zero.clean.candidateCount).toBe(1);
+  });
+
+  it("楽天モード: cuisine 不正は BAD_REQUEST", () => {
+    const r = validateRequestInput({
+      source: "rakuten",
+      cuisine: "unknown",
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.code).toBe("BAD_REQUEST");
+  });
+
+  it("AI モード: 全 cuisine が VALID_CUISINES 値を受け付ける", () => {
+    for (const c of VALID_CUISINES) {
+      const r = validateRequestInput({
+        source: "ai",
+        cuisine: c,
+        ingredients: ["x"],
+      });
+      expect(r.ok).toBe(true);
+      if (r.ok && r.clean.source === "ai") {
+        expect(r.clean.cuisine).toBe(c);
+      }
+    }
   });
 });
