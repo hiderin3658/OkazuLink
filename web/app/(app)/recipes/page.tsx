@@ -53,6 +53,7 @@ export default async function RecipesPage() {
               }
             : undefined
         }
+        defaultSource={profile?.default_recipe_source ?? "ai"}
       />
     </div>
   );
