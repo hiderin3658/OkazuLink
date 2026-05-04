@@ -168,6 +168,10 @@ export function toRecipeOut(row: RecipeRow): RecipeOut {
     steps: stepsArr,
     external: {
       provider: "rakuten",
+      // 楽天モードで recipes.upsert する経路では必ず external_url / external_image_url を
+      // セットしている（L324-325）ため、cache hit 時に null になることはほぼない。
+      // ただし PR-A スキーマ上は NULL 許容のため防御フォールバックを置いている。
+      // フロント (PR-D) 側で url が空文字なら「楽天で見る」リンクを非表示にする想定。
       url: row.external_url ?? "",
       image_url: row.external_image_url ?? "",
       meta,
@@ -336,11 +340,14 @@ export async function runRakutenMode(
     generated_prompt_hash: null,
   }));
 
+  // external_id を select に含める。後段で rawRecipes との対応を取るキーとして使う。
+  // PostgREST の upsert(...).select(...) は INSERT 順を保証しないため、i 番目で zip
+  // するのは安全でない。external_id で Map にしてから raw 側の順序で取り直す。
   const upserted = await serviceClient
     .from("recipes")
     .upsert(upsertPayload, { onConflict: "external_provider,external_id" })
     .select(
-      "id, title, cuisine, description, servings, time_minutes, calories_kcal, steps, external_url, external_image_url, external_meta",
+      "id, title, cuisine, description, servings, time_minutes, calories_kcal, steps, external_provider, external_id, external_url, external_image_url, external_meta",
     );
 
   if (upserted.error || !upserted.data) {
@@ -396,11 +403,25 @@ export async function runRakutenMode(
   });
 
   // 8. レスポンス整形
-  //    upsert 結果は INSERT 順 = rawRecipes と同順序になる（PostgREST の挙動）。
-  //    既存行が更新された場合も同様に payload 順で返るため i 番目で zip して問題ない。
-  const results: RecipeOut[] = upsertedRows
-    .map((row, i) => {
-      const raw = rawRecipes[i]!;
+  //    upsert 結果と rawRecipes を external_id で対応付ける（順序保証されないため）。
+  //    raw 側の順序（楽天ランキング rank 順）を最終出力の順序として採用する。
+  const upsertedByExternalId = new Map<number, RecipeRow>();
+  for (const row of upsertedRows) {
+    if (typeof row.external_id === "number") {
+      upsertedByExternalId.set(row.external_id, row);
+    }
+  }
+
+  const results: RecipeOut[] = rawRecipes
+    .map((raw): RecipeOut | null => {
+      const row = upsertedByExternalId.get(raw.recipeId);
+      if (!row) {
+        // upsert 結果に該当行がない（理論上ないが防御）
+        console.error(
+          `[rakuten-flow] upsert result missing for recipeId=${raw.recipeId}`,
+        );
+        return null;
+      }
       const meta = (row.external_meta ?? {}) as Record<string, unknown>;
       return {
         id: row.id,
@@ -424,6 +445,7 @@ export async function runRakutenMode(
         },
       };
     })
+    .filter((r): r is RecipeOut => r !== null)
     .slice(0, input.candidateCount);
 
   return {

@@ -264,7 +264,9 @@ export function validateRequestInput(body: RequestBody): ValidateInputResult {
   }
 
   if (source === "rakuten") {
-    // 楽天モード: cuisine が楽天 categoryId に紐付くか念のため確認（防御）
+    // 防御コード: 現在は VALID_CUISINES と CUISINE_TO_RAKUTEN_CATEGORY が
+    // 同じ 8 種を網羅しているため到達しないが、片側だけ拡張された場合に備える。
+    // 例えば new cuisine 追加時に楽天 categoryId 未マッピングなら早期エラー。
     if (rakutenCategoryFor(cuisine) === null) {
       return {
         ok: false,
