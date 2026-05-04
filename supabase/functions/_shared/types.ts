@@ -44,6 +44,12 @@ export const EDGE_ERROR_CODES = [
   "AI_TIMEOUT",
   "AI_INVALID_RESPONSE",
   "INTERNAL_ERROR",
+  // P-14: 楽天レシピ API 関連
+  "RAKUTEN_API_FAILED",
+  "RAKUTEN_RATE_LIMIT",
+  "RAKUTEN_TIMEOUT",
+  "RAKUTEN_INVALID_RESPONSE",
+  "RAKUTEN_UNSUPPORTED_CUISINE",
 ] as const;
 
 export type EdgeErrorCode = (typeof EDGE_ERROR_CODES)[number];
