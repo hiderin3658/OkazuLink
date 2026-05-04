@@ -10,7 +10,7 @@
 //   - 本ファイル: RecipeSuggestion に id (DB 永続化後) を持つ
 // この差は意図的（DB 永続化前後の状態を表す）。
 
-import type { Cuisine, GoalType } from "@/types/database";
+import type { Cuisine, GoalType, RecipeSourcePreference } from "@/types/database";
 
 export interface SuggestRecipesProfile {
   allergies?: string[];
@@ -19,7 +19,9 @@ export interface SuggestRecipesProfile {
 }
 
 export interface SuggestRecipesInput {
-  ingredients: string[];
+  /** P-14: 提案ソース。未指定なら "ai"（既存互換）。 */
+  source?: RecipeSourcePreference;
+  ingredients?: string[]; // 楽天モードでは未使用
   cuisine: Cuisine;
   servings?: number;
   candidateCount?: number;
@@ -32,6 +34,14 @@ export interface RecipeIngredientSuggestion {
   optional: boolean;
 }
 
+/** P-14: 楽天レシピ由来の追加情報（楽天モード時のみ付与）。 */
+export interface RecipeExternalInfo {
+  provider: "rakuten";
+  url: string;
+  image_url: string;
+  meta: Record<string, unknown>;
+}
+
 export interface RecipeSuggestion {
   id: string;
   title: string;
@@ -42,9 +52,13 @@ export interface RecipeSuggestion {
   calories_kcal: number | null;
   ingredients: RecipeIngredientSuggestion[];
   steps: string[];
+  /** P-14: 楽天モード時のみ存在。AI モードでは undefined。 */
+  external?: RecipeExternalInfo;
 }
 
 export interface SuggestRecipesResponse {
   cached: boolean;
+  /** P-14: 楽天モード時のみ "rakuten" が入る。AI モードでは未指定。 */
+  source?: "rakuten";
   results: RecipeSuggestion[];
 }
